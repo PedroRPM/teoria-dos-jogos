@@ -1,0 +1,2398 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="{{L:title}}. Dilema do prisioneiro iterado em árvore de decisões, ambientado num escritório com IA generativa.">
+<title>Teoria dos Jogos</title>
+<link rel="icon" type="image/png" href="assets/DJDE.png">
+<style>
+/* ============================================================
+   RESET E VARIÁVEIS DE TEMA (escuro)
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+:root{
+  --bg:        #D4CDBA;
+  --bg-2:      #E3DFD1;
+  --panel:     #f7f3ec;
+  --panel-2:   #E3E2DE;
+  --line:      #322b42;
+  --ink:       #0B0014;
+  --ink-soft:  #0B0909:
+  --ink-faint: #2E2E2E:
+  --gold:      #e8c16f;
+  --gold-deep: #c99a3a;
+  --green:     #7FC441;
+  --green-dim: #B8DE95;
+  --red:       #e0566b;
+  --red-dim:   rgba(224,86,107,.16);
+  --blue:      #7aa7e0;
+  --blue-dim:  rgba(122,167,224,.16);
+  --purple:    #a98fd8;
+  /* cores de identidade nos gráficos: Você = âmbar · [RIVAL] = azul */
+  --voce:      #DAB706;
+  --rival:     #0629DA;
+  --radius:    14px;
+  --radius-sm: 9px;
+  --shadow:    0 10px 34px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
+  --ease:      cubic-bezier(.22,.61,.36,1);
+}
+
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  margin: 0;
+  background-image: url("assets/fundo3.png");
+  background-repeat: repeat;
+ /* background-color: #F9F6EF;*/
+  color:var(--ink);
+  min-height:100vh;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+.serif{ font-family:Georgia,'Iowan Old Style','Times New Roman',serif; }
+h1,h2,h3{ margin:0; font-weight:600; line-height:1.2; }
+p{ margin:0 0 .9em; }
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+.app{ max-width:1180px; margin:0 auto; padding:14px 16px 60px; }
+
+header.top{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  flex-wrap:wrap;
+  padding:10px 14px; margin-bottom:14px;
+  background:#f2f1ea;
+  border:1px solid var(--line); border-radius:var(--radius);
+  backdrop-filter:blur(8px);
+}
+.brand{ font-family:Georgia,serif; font-size:15px; font-weight:600; display:flex; align-items:center; gap:9px; }
+.brand .dot{ width:10px; height:10px; border-radius:50%; background:var(--gold); box-shadow:0 0 0 4px rgba(232,193,111,.16); }
+.brand small{ display:block; font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--ink-faint); font-weight:500; }
+.top-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+.btn{
+  padding:10px 18px; border-radius:var(--radius-sm); font-size:14px; font-weight:600;
+  background:var(--panel-2); border:1px solid var(--line); color:var(--ink);
+  transition:transform .18s var(--ease), background .18s, border-color .18s, box-shadow .18s;
+}
+.btn:hover{ transform:translateY(-1px); border-color:var(--gold-deep); }
+.btn.primary{ background:linear-gradient(180deg,var(--gold) 0%,var(--gold-deep) 100%); color:#231c08; border-color:var(--gold-deep); }
+.btn.primary:hover{ box-shadow:0 8px 22px rgba(232,193,111,.28); }
+.btn.ghost{ background:transparent; }
+.btn.small{ padding:6px 12px; font-size:12.5px; }
+.btn.icon{ padding:6px 10px; font-size:15px; line-height:1; }
+.btn:disabled{ opacity:.45; cursor:not-allowed; transform:none; }
+
+.card{
+  background:linear-gradient(180deg,var(--panel) 0%,var(--bg-2) 100%);
+  border:1px solid var(--line); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:22px;
+}
+.grid-main{ display:grid; grid-template-columns:1fr 316px; gap:14px; align-items:start; }
+/* min-width:0 impede que conteúdo largo (árvore/gráficos em SVG) trave o
+   encolhimento da coluna — sem isso o grid estoura em vez de rolar. */
+.grid-main > *{ min-width:0; }
+@media (max-width:960px){ .grid-main{ grid-template-columns:1fr; } }
+
+/* ============================================================
+   PAINEL DE KPIs — dois personagens lado a lado
+   ============================================================ */
+.kpi-panel{ position:sticky; top:14px; padding:16px 16px 18px; }
+.kpi-panel h3{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:12px; }
+
+/* cabeçalho com os dois nomes */
+.duo-head{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+.duo-who{ text-align:center; padding:7px 4px; border-radius:8px; font-size:12px; font-weight:700;
+  border:1px solid var(--line); background:var(--panel-2); }
+.duo-who.voce{  color:var(--voce);  border-color:rgba(232,193,111,.4); }
+.duo-who.rival{ color:var(--rival); border-color:rgba(121,184,240,.4); }
+.duo-who small{ display:block; font-size:10px; font-weight:500; color:var(--ink-faint); letter-spacing:.05em; }
+.duo-who.fora{ opacity:.55; text-decoration:line-through; }
+
+/* barra compartilhada (confiança) */
+.kpi{ margin-bottom:12px; }
+.kpi-head{ display:flex; justify-content:space-between; align-items:baseline; font-size:12px; margin-bottom:5px; }
+.kpi-head b{ font-variant-numeric:tabular-nums; font-size:13.5px; }
+.kpi-label{ color:var(--ink-soft); }
+.bar{ height:8px; border-radius:5px; background:#2a2437; overflow:hidden; }
+.bar i{ display:block; height:100%; border-radius:5px; transition:width .7s var(--ease); }
+.bar.conf i{ background:linear-gradient(90deg,#3a7f9e,var(--blue)); }
+.bar.voce i{  background:linear-gradient(90deg,#F9D315,var(--voce)); }
+.bar.rival i{ background:linear-gradient(90deg,#0521AE,var(--rival)); }
+
+/* par de barras: Você × [RIVAL] */
+.kpi-duo{ margin-bottom:12px; }
+.kpi-duo > .rot{ font-size:12px; color:var(--ink-soft); margin-bottom:5px; }
+.kpi-duo .par{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.kpi-duo .lado{ }
+.kpi-duo .num{ display:flex; justify-content:space-between; align-items:baseline; font-size:11.5px; margin-bottom:3px; }
+.kpi-duo .num b{ font-variant-numeric:tabular-nums; font-size:13px; }
+.delta{ font-size:11px; font-weight:700; font-variant-numeric:tabular-nums; }
+.delta.up{ color:var(--green); } .delta.down{ color:var(--red); } .delta.zero{ color:var(--ink-faint); }
+
+.kpi-money{ display:grid; grid-template-columns:1fr auto auto; gap:8px; font-size:12px; padding:6px 0;
+  border-top:1px solid var(--line); align-items:baseline; }
+.kpi-money > span:first-child{ color:var(--ink-soft); }
+.kpi-money b{ font-variant-numeric:tabular-nums; font-size:12.5px; text-align:right; min-width:74px; display:inline-block; }
+.kpi-money b.v{ color:var(--voce); } .kpi-money b.r{ color:var(--rival); }
+.cargo-par{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+.cargo-chip{ display:block; text-align:center; padding:5px 8px; border-radius:999px;
+  font-size:11px; font-weight:600; background:rgba(232,215,201,.12);
+  color:var(--gold); border:1px solid rgba(232,193,111,.28); color:var(--voce);}
+.cargo-chip.r{ background:rgba(121,184,240,.12); color:var(--rival); border-color:rgba(121,184,240,.28); }
+.cargo-chip.fired{ background:var(--red-dim); color:var(--red); border-color:rgba(224,86,107,.35); }
+.lab-state{ margin-top:12px; font-family:ui-monospace,Consolas,monospace; font-size:11px; color:var(--ink-faint); white-space:pre-wrap; }
+
+/* ============================================================
+   CENAS
+   ============================================================ */
+.scene-holder{ position:relative; }
+.scene-img{
+  width:100%; aspect-ratio:296/236; max-height:280px; object-fit:cover; object-position:center 40%;
+  display:block; border-radius:var(--radius-sm); border:1px solid var(--line);
+  image-rendering:pixelated; margin-bottom:16px; background:#0d0b12;
+}
+.scene-holder.sem-img{
+  aspect-ratio:296/236; max-height:280px; border-radius:var(--radius-sm); border:1px solid var(--line);
+  margin-bottom:16px; background:linear-gradient(135deg,#241f30,#17141f);
+  display:flex; align-items:center; justify-content:center;
+}
+.scene-holder.sem-img::after{ content:'cena'; color:var(--ink-faint); font-size:12px; letter-spacing:.22em; text-transform:uppercase; }
+.token{
+  display:inline-block; padding:1px 7px; border-radius:6px; font-size:.86em; font-weight:700;
+  font-family:'Inter',sans-serif; letter-spacing:.03em;
+  background:rgba(232,193,111,.16); color:var(--gold); border:1px solid rgba(232,193,111,.35);
+}
+.round-tag{
+  display:inline-flex; align-items:center; gap:8px; font-size:11px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--gold); font-weight:700; margin-bottom:6px;
+}
+.round-tag .sep{ color:var(--ink-faint); font-weight:400; letter-spacing:0; text-transform:none; }
+.scene-title{ font-size:24px; margin-bottom:4px; }
+.scene-meta{ font-size:12px; color:var(--ink-faint); margin-bottom:16px; }
+.narr{ font-size:16.5px; line-height:1.72; color:var(--ink-soft); }
+.narr.quote{
+  border-left:3px solid var(--gold-deep); padding-left:16px; font-family:Georgia,serif;
+  color:var(--ink); font-size:17px;
+}
+.choices{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:20px; }
+@media (max-width:620px){ .choices{ grid-template-columns:1fr; } }
+.choice{
+  text-align:left; padding:16px 18px; border-radius:var(--radius-sm);
+  border:1px solid var(--line); background:var(--panel-2);
+  transition:transform .18s var(--ease), border-color .18s, box-shadow .18s, background .18s;
+}
+.choice:hover{ transform:translateY(-2px); }
+.choice .ct{ font-weight:700; font-size:15px; margin-bottom:5px; }
+.choice .cd{ font-size:13.5px; color:var(--ink-soft); line-height:1.5; }
+.choice.coop{ border-color:rgba(79,191,160,.35); }
+.choice.coop:hover{ background:var(--green-dim); box-shadow:0 8px 22px rgba(79,191,160,.15); }
+.choice.coop .ct{ color:var(--green); }
+.choice.trair{ border-color:rgba(224,86,107,.35); }
+.choice.trair:hover{ background:var(--red-dim); box-shadow:0 8px 22px rgba(224,86,107,.15); }
+.choice.trair .ct{ color:var(--red); }
+
+/* revelação das jogadas */
+.reveal{ display:grid; grid-template-columns:1fr auto 1fr; gap:14px; align-items:center; margin:18px 0; }
+@media (max-width:620px){ .reveal{ grid-template-columns:1fr; } }
+.play{ padding:16px; border-radius:var(--radius-sm); border:1px solid var(--line); text-align:center; background:var(--panel-2); }
+.play .who{ font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:8px; }
+.play .act{ font-size:20px; font-weight:700; }
+.play.c{ border-color:rgba(79,191,160,.45); background:var(--green-dim); } .play.c .act{ color:var(--green); }
+.play.d{ border-color:rgba(224,86,107,.45); background:var(--red-dim); }   .play.d .act{ color:var(--red); }
+.quad-badge{ text-align:center; }
+.quad-badge .q{ font-family:Georgia,serif; font-size:30px; font-weight:700; color:var(--gold); letter-spacing:.06em; }
+.quad-badge .qn{ font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); }
+
+.frag{
+  margin-top:12px; padding:12px 15px; border-radius:var(--radius-sm);
+  background:rgba(122,167,224,.08); border-left:3px solid var(--blue);
+  font-style:italic; font-size:14px; color:var(--ink-soft);
+}
+.evt{ margin-top:12px; padding:13px 16px; border-radius:var(--radius-sm); font-size:14.5px; font-weight:600; }
+.evt.up{ background:var(--green-dim); border:1px solid rgba(79,191,160,.4); color:var(--green); }
+.evt.down{ background:var(--red-dim); border:1px solid rgba(224,86,107,.4); color:var(--red); }
+.evt.gold{ background:rgba(232,193,111,.12); border:1px solid rgba(232,193,111,.4); color:var(--gold); }
+
+.fade-in{ animation:fadeIn .45s var(--ease); }
+@keyframes fadeIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+
+/* ============================================================
+   ESCOLHA DE PERSONAGEM
+   ============================================================ */
+.chars{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:20px; }
+@media (max-width:620px){ .chars{ grid-template-columns:1fr; } }
+.char{ padding:0; border-radius:var(--radius); border:1px solid var(--line); background:var(--panel-2); overflow:hidden;
+  transition:transform .2s var(--ease), border-color .2s, box-shadow .2s; }
+.char:hover{ transform:translateY(-3px); border-color:var(--gold); box-shadow:0 12px 30px rgba(232,193,111,.18); }
+/* as artes trazem um rótulo gravado no topo; o recorte esconde esse rótulo */
+.char-art{ position:relative; width:100%; aspect-ratio:170/136; overflow:hidden; background:#0d0b12; }
+.char-art img{ position:absolute; top:-22.3%; left:0; width:100%; display:block; image-rendering:pixelated; }
+.char-art.sem-img{ display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#241f30,#17141f); }
+.char-art.sem-img::after{ content:'?'; font-size:38px; color:var(--ink-faint); font-family:Georgia,serif; }
+.char-body{ padding:14px 16px 18px; text-align:center; }
+.char-body .nm{ font-size:19px; font-weight:700; font-family:Georgia,serif; }
+.char-body .rl{ font-size:12.5px; color:var(--ink-faint); margin-top:3px; }
+
+/* ============================================================
+   PAINÉIS RETRÁTEIS (árvore e gráficos)
+   ============================================================ */
+details.painel{ margin-top:14px; padding:14px 18px; }
+details.painel > summary{
+  cursor:pointer; list-style:none; font-size:12px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--ink-faint); font-weight:700; padding:4px 0;
+}
+details.painel > summary::-webkit-details-marker{ display:none; }
+details.painel > summary::before{ content:'\25B8  '; color:var(--gold); }
+details.painel[open] > summary::before{ content:'\25BE  '; }
+.tree-scroll{ overflow-x:auto; padding-bottom:6px; }
+.tree-legend{ display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--ink-faint); margin-top:10px; }
+.tree-legend i{ display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+
+/* ============================================================
+   GRÁFICOS
+   ============================================================ */
+.graf-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; margin-top:12px; }
+.graf{ background:var(--panel-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px 12px 8px; }
+.graf h4{ font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-soft); margin:0 0 2px; }
+.graf .sub{ font-size:11px; color:var(--ink-faint); margin-bottom:8px; }
+.graf svg{ width:100%; height:auto; display:block; overflow:visible; }
+.graf-legend{ display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--ink-soft); margin-top:6px; }
+.graf-legend i{ display:inline-block; width:16px; height:3px; border-radius:2px; margin-right:6px; vertical-align:3px; }
+.graf-legend i.dash{ background:none !important;
+  border-top:3px dashed var(--rival); height:0; width:18px; }
+.pt{ transition:r .15s var(--ease); cursor:default; }
+.pt:hover{ r:6; }
+.barra:hover{ opacity:.82; }
+
+/* ============================================================
+   EPÍLOGO
+   ============================================================ */
+.epi{ margin-bottom:14px; padding:18px 20px; border-radius:var(--radius-sm);
+  background:var(--panel-2); border:1px solid var(--line); border-left:4px solid var(--gold); }
+.epi h3{ font-size:18px; margin-bottom:8px; color:var(--gold); font-family:Georgia,serif; }
+.epi.bad{ border-left-color:var(--red); } .epi.bad h3{ color:var(--red); }
+.epi.good{ border-left-color:var(--green); } .epi.good h3{ color:var(--green); }
+.epi.rival{ border-left-color:var(--rival); } .epi.rival h3{ color:var(--rival); }
+.epi p{ margin:0; font-size:15px; color:var(--ink-soft); }
+.summary-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin:18px 0; }
+.sum{ padding:14px; border-radius:var(--radius-sm); background:var(--panel-2); border:1px solid var(--line); text-align:center; }
+.sum .v{ font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; }
+.sum .v.r{ font-size:14px; color:var(--rival); font-weight:600; }
+.sum .l{ font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); margin-top:4px; }
+.arq-box{ display:flex; gap:16px; align-items:flex-start; }
+.arq-box img{ width:96px; border-radius:8px; border:1px solid var(--line); image-rendering:pixelated; flex:none; }
+.licao{ margin-top:18px; padding:18px 20px; border-radius:var(--radius-sm);
+  background:rgba(232,193,111,.07); border:1px solid rgba(232,193,111,.28); }
+.licao h3{ font-size:13px; letter-spacing:.09em; text-transform:uppercase; color:var(--gold); margin-bottom:9px; }
+.licao p{ font-size:15px; color:var(--ink-soft); }
+.licao-ilustra{ display:flex; gap:14px; justify-content:center; margin-top:14px; flex-wrap:wrap; }
+.licao-ilustra figure{ margin:0; text-align:center; max-width:132px; }
+.licao-ilustra img{ width:100%; border-radius:8px; border:1px solid var(--line); image-rendering:pixelated; }
+.licao-ilustra figcaption{ font-size:11px; color:var(--ink-faint); margin-top:5px; line-height:1.35; }
+
+/* ============================================================
+   DESFECHO (§13) — arte do destino, fala da Marina e leituras de perfil
+   ============================================================ */
+.destino{ margin:0 0 18px; position:relative; }
+.destino > img{
+  width:100%; aspect-ratio:296/236; max-height:300px; object-fit:cover; object-position:center 40%;
+  display:block; border-radius:var(--radius-sm); border:1px solid var(--line);
+  image-rendering:pixelated; background:#0d0b12;
+}
+.destino.sem-img{
+  aspect-ratio:296/236; max-height:300px; border-radius:var(--radius-sm);
+  border:1px solid var(--line); background:linear-gradient(135deg,#241f30,#17141f);
+}
+.destino figcaption{
+  margin-top:11px; text-align:center; font-family:Georgia,serif; font-size:17px; color:var(--gold);
+}
+/* final de parceria: os dois cards de personagem sobre a cena */
+.destino-duo{ position:absolute; left:0; right:0; bottom:54px; display:flex; gap:12px; justify-content:center; }
+.destino-card{
+  width:88px; aspect-ratio:170/136; position:relative; overflow:hidden; border-radius:9px;
+  border:2px solid var(--gold); box-shadow:0 10px 26px rgba(0,0,0,.6); background:#0d0b12;
+}
+.destino-card img{ position:absolute; top:-22.3%; left:0; width:100%; image-rendering:pixelated; }
+
+.marina{
+  margin:0 0 18px; padding:18px 20px; border-radius:var(--radius-sm);
+  background:linear-gradient(180deg,rgba(169,143,216,.13),rgba(169,143,216,.05));
+  border:1px solid rgba(169,143,216,.3); border-left:4px solid var(--purple);
+}
+.marina-quem{
+  font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--purple);
+  font-weight:700; margin-bottom:9px;
+}
+.marina p:last-child{ margin-bottom:0; }
+.marina-quem small{ text-transform:none; letter-spacing:0; color:var(--ink-faint); font-weight:500; margin-left:7px; }
+.marina p{ margin:0 0 .7em; font-family:Georgia,serif; font-size:17px; line-height:1.66; color:var(--ink); }
+
+.perfil{
+  margin-bottom:14px; padding:18px 20px; border-radius:var(--radius-sm);
+  background:var(--panel-2); border:1px solid var(--line); border-left:4px solid var(--voce);
+}
+.perfil.rival{ border-left-color:var(--rival); }
+.perfil-tag{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); font-weight:700; }
+.perfil h3{ font-family:Georgia,serif; font-size:19px; margin:4px 0 10px; color:var(--voce); }
+.perfil.rival h3{ color:var(--rival); }
+.perfil p{ margin:0 0 8px; font-size:14.5px; color:var(--ink-soft); line-height:1.6; }
+.perfil p:last-child{ margin-bottom:0; }
+.perfil b{ color:var(--ink); font-weight:600; }
+.secao-tit{
+  font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint);
+  font-weight:700; margin:26px 0 10px;
+}
+
+/* ============================================================
+   MODO LABORATÓRIO
+   ============================================================ */
+.lab-box{ margin-top:16px; padding:16px; border-radius:var(--radius-sm); border:1px dashed var(--line); background:rgba(122,167,224,.05); }
+.lab-box h3{ font-size:12px; letter-spacing:.09em; text-transform:uppercase; color:var(--blue); margin-bottom:10px; }
+.lab-opts{ display:flex; flex-wrap:wrap; gap:8px; }
+.lab-opt{ padding:7px 13px; border-radius:999px; font-size:12.5px; border:1px solid var(--line); background:var(--panel-2); }
+.lab-opt.on{ background:rgba(122,167,224,.2); border-color:var(--blue); color:#cfe0f2; font-weight:600; }
+.switch{ display:inline-flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); cursor:pointer; }
+.switch input{ accent-color:var(--gold); width:15px; height:15px; }
+.hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <span class="dot"></span>
+      <span>{{L:title}}
+        <small>{{L:subtitle}}</small>
+      </span>
+    </div>
+    <div class="top-actions">
+      <label class="switch" title="{{L:lab_title}}">
+        <input type="checkbox" id="labToggle"> {{L:lab}}
+      </label>
+      <button class="btn ghost icon" id="btnAudio" title="{{L:sound_toggle}}" aria-label="{{L:sound_aria}}">&#128266;</button>
+      <button class="btn ghost small" id="btnRestart">{{L:restart}}</button>
+    </div>
+  </header>
+  <main id="root"></main>
+</div>
+<script>
+(async()=>{
+  const cen=new URLSearchParams(location.search).get("cen");
+  const __loc=await fetch(cen+".json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});
+  const L=(k)=>__loc.texts[k] ?? k;
+  const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+  const nodes=[]; while(walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(n=>{n.nodeValue=n.nodeValue.replace(/\{\{L:([^}]+)\}\}/g,(_,k)=>L(k));});
+  document.querySelectorAll('[title],[aria-label]').forEach(el=>{
+    for(const a of ['title','aria-label']) if(el.hasAttribute(a)) el.setAttribute(a,el.getAttribute(a).replace(/\{\{L:([^}]+)\}\}/g,(_,k)=>L(k)));
+  });
+  document.documentElement.lang=__loc.locale||'pt-BR';
+"use strict";
+/* ============================================================================
+   CENÁRIO 6 — CONFIANÇA, IA E REPUTAÇÃO   (v2)
+   Dilema do prisioneiro iterado, em árvore de decisões com finais ramificados.
+   Arquivo único, JavaScript puro, sem dependências e sem internet.
+
+   ORGANIZAÇÃO DO ARQUIVO
+   1) CFG ......... todos os números do jogo (ajuste aqui para recalibrar)
+   2) TEXTOS ...... enredo, legenda e demais textos fixos
+   3) CENAS ....... as 21 cenas transcritas do pacote de histórias (v4)
+   4) FRAGMENTOS .. biblioteca com variações, sem repetição em rodadas seguidas
+   5) EPILOGOS .... destinos finais e suas condições
+   6) ARQUETIPOS .. as 8 regras de decisão de [RIVAL]
+   7) MOTOR ....... máquina de estados e economia SIMÉTRICA (jogador E IA)
+   8) ÁUDIO ....... música e efeitos sintetizados na Web Audio API
+   9) GRÁFICOS .... árvore de decisões e evolução dos KPIs, em SVG
+  10) INTERFACE ... telas e painel de KPIs dos dois personagens
+   ============================================================================ */
+
+/* ============================================================================
+   1) CFG — CONFIGURAÇÃO NUMÉRICA (mexa aqui para recalibrar o jogo)
+   As mesmas regras valem para o JOGADOR e para a IA: cada personagem tem o seu
+   streak, a sua eficiência, a sua reputação, a sua dívida-IA, o seu bônus, o
+   seu cargo e o seu patrimônio. A confiança da relação é compartilhada.
+   ============================================================================ */
+const CFG = {
+  rodadas: 6,                    // total de rodadas da partida
+  mesesPorRodada: 4,             // cada rodada equivale a 4 meses
+
+  // ---- Estado inicial (de cada personagem) ----------------------------
+  inicial: {
+    confianca: 60,               // confiança da relação (0–100), compartilhada
+    reputacao: 60,               // reputação social de cada personagem (0–100)
+    eficiencia: 60,              // eficiência de cada personagem (0–100)
+    cargoIdx: 0,                 // índice em CFG.cargos
+    patrimonio: 0                // patrimônio acumulado em R$
+  },
+
+  // ---- Cargos e salário mensal ---------------------------------------
+  cargos: [
+    { nome: L("nome_001"),           salario:  5000 },
+    { nome: L("nome_002"),    salario:  8000 },
+    { nome: L("nome_003"),  salario: 12000 }
+  ],
+
+  // ---- Deltas por decisão (aplicados a QUALQUER um dos dois) -----------
+  // Cooperar: reputação e eficiência sobem; a confiança depende do quadrante.
+  cooperar: {
+    reputacao: +6,
+    eficiencia: +4,
+    confiancaCC: +7,             // os dois cooperaram
+    confiancaCD: -12             // um cooperou e o outro traiu
+  },
+  // Trair: a reputação cai sempre; a eficiência só sobe na primeira traição
+  // (o volume impressiona) e desaba nas seguintes (a dívida técnica aparece).
+  trair: {
+    reputacao: -8,
+    reputacaoExploraCooperador: -12,  // traiu quem estava cooperando
+    eficienciaStreak1: +10,
+    eficienciaStreak2: -14,
+    eficienciaStreak3ouMais: -20,
+    confiancaUnilateral: -12,         // só um traiu
+    confiancaMutua: -9                // os dois traíram
+  },
+  // Dívida da IA: toda traição agenda uma perda de eficiência na rodada
+  // SEGUINTE (o cliente descobre o erro depois). Vale para os dois.
+  dividaIA: 6,
+
+  // ---- Bônus por entrega (R$) — calculado para cada personagem ---------
+  bonus: {
+    exploraCooperadorPrimeira: 6000, // traiu um cooperador, 1ª vez, sem ser pego
+    cooperacaoMutua: 3000,
+    extraReputacaoAlta: 1000,        // + este valor se reputação >= reputacaoMin
+    reputacaoMin: 75,
+    traicaoMutua: 1500,
+    cooperouEFoiTraido: 1000,        // quem levou a traição
+    trapacaExposta: 500,             // traição com eficiência < eficienciaMin
+    trapacaEficienciaMin: 45         //   ou com a trapaça já descoberta
+  },
+
+  // ---- Promoção e demissão (valem para os DOIS personagens) ------------
+  promocao: { reputacaoMin: 75, eficienciaMin: 70, confiancaMin: 60 },
+  demissao: { reputacaoMin: 30, eficienciaMin: 30 },   // abaixo disso, demite
+
+  // ---- Limiares dos epílogos -------------------------------------------
+  epilogo: {
+    patrimonioAlto: 150000,      // referência: cooperação mútua total ~R$210.000
+    patrimonioBaixo: 145000,
+    confiancaAlta: 75,
+    confiancaRuptura: 20,
+    reputacaoBoa: 60,
+    reputacaoFraca: 50,
+    fundoDoPocoConfianca: 35,    // para o epílogo de reconstrução
+    reconstrucaoConfiancaFinal: 45
+  },
+
+  sementeAleatoria: 20260101,    // semente do arquétipo Aleatório (reproduzível)
+  maxFragmentosPorRodada: 2,     // quantos fragmentos mostrar por rodada
+
+  audio: {
+    volumeMusica: 0.16,
+    volumeEfeitos: 0.30,
+    bpm: 84                      // andamento da música procedural
+  }
+};
+
+/* ============================================================================
+   2) TEXTOS FIXOS (transcritos do pacote de histórias v4, §0)
+   ============================================================================ */
+const TEXTOS = {
+  aberturaTitulo: L("aberturaTitulo_001"),
+  abertura:
+    L("abertura_001") +
+    L("data_001") +
+    L("data_002") +
+    L("data_003") +
+    L("data_004") +
+    L("data_005") +
+    L("data_006") +
+    L("data_007"),
+  legendaCooperar:
+    L("legendaCooperar_001"),
+  legendaTrair:
+    L("legendaTrair_001"),
+  personagens:
+    L("personagens_001") +
+    L("data_008") +
+    L("data_009"),
+  simetria:
+    L("simetria_001") +
+    L("data_010"),
+  licao:
+    L("licao_001") +
+    L("data_011") +
+    L("data_012") +
+    L("data_013") +
+    L("data_014") +
+    L("data_015") +
+    L("data_016")
+};
+
+/* Nomes dos quadrantes exibidos na revelação das jogadas. */
+const QUADRANTES = {
+  CC: { sigla:'CC', nome:L("data_017") },
+  CD: { sigla:'CD', nome:L("data_018") },
+  DC: { sigla:'DC', nome:L("data_019") },
+  DD: { sigla:'DD', nome:L("data_020") }
+};
+
+/* Estados de relação (§2 do pacote). */
+const ESTADOS = {
+  AL: { sigla:'AL', nome:L("nome_004"),  clima:L("data_021") },
+  TR: { sigla:'TR', nome:L("nome_005"),   clima:L("data_022") },
+  DE: { sigla:'DE', nome:L("nome_006"),        clima:L("data_023") },
+  DX: { sigla:'DX', nome:L("nome_007"), clima:L("data_024") },
+  RU: { sigla:'RU', nome:L("nome_008"),  clima:L("data_025") }
+};
+
+/* ============================================================================
+   3) CENAS — as 21 cenas transcritas do pacote v4 (§4 a §9)
+   Chave: L("data_026"). Nas rodadas 5 e 6 os estados colapsam em três
+   grupos, mas agora cada grupo tem um TEMA PRÓPRIO (não só um tom diferente):
+     R5  COOP L("data_027") · DESC L("data_028") · RUP L("data_029")
+     R6  COOP L("data_030")    · DESC L("data_031")               · RUP L("data_032")
+   ============================================================================ */
+const CENAS = {
+
+  /* ---------- RODADA 1 — L("data_033") [TR] ---------- */
+  r1_TR: {
+    rodadaTitulo:L("rodadaTitulo_001"), titulo:L("titulo_001"), img:'office.png', meses:L("meses_001"),
+    intro:L("intro_001") +
+      L("data_034") +
+      L("data_035") +
+      L("data_036"),
+    dilemaC:L("dilemaC_001"),
+    dilemaD:L("dilemaD_001"),
+    cons:{
+      CC:L("CC_001"),
+      CD:L("CD_001"),
+      DC:L("DC_001"),
+      DD:L("data_037")
+    }
+  },
+
+  /* ---------- RODADA 2 — L("data_038") ---------- */
+  r2_AL: {
+    rodadaTitulo:L("rodadaTitulo_002"), titulo:L("titulo_002"), img:'meeting.png', meses:L("meses_002"),
+    subtitulo:L("subtitulo_001"),
+    intro:L("intro_002") +
+      L("data_039") +
+      L("data_040"),
+    dilemaC:L("dilemaC_002"),
+    dilemaD:L("dilemaD_002"),
+    cons:{
+      CC:L("CC_002"),
+      CD:L("CD_002"),
+      DC:L("DC_002"),
+      DD:L("data_041")
+    }
+  },
+  r2_DE: {
+    rodadaTitulo:L("rodadaTitulo_003"), titulo:L("titulo_003"), img:'office.png', meses:L("meses_003"),
+    subtitulo:L("subtitulo_002"),
+    intro:L("intro_003") +
+      L("data_042") +
+      L("data_043") +
+      L("data_044") +
+      L("data_045"),
+    dilemaC:L("dilemaC_003"),
+    dilemaD:L("dilemaD_003"),
+    cons:{
+      CC:L("CC_003"),
+      CD:L("CD_003"),
+      DC:L("DC_003"),
+      DD:L("data_046")
+    }
+  },
+  r2_DX: {
+    rodadaTitulo:L("rodadaTitulo_004"), titulo:L("titulo_004"), img:'elevator.png', meses:L("meses_004"),
+    subtitulo:L("subtitulo_003"),
+    intro:L("intro_004") +
+      L("data_047") +
+      L("data_048"),
+    dilemaC:L("dilemaC_004"),
+    dilemaD:L("dilemaD_004"),
+    cons:{
+      CC:L("CC_004"),
+      CD:L("CD_004"),
+      DC:L("DC_004"),
+      DD:L("data_049")
+    }
+  },
+  r2_RU: {
+    rodadaTitulo:L("rodadaTitulo_005"), titulo:L("titulo_005"), img:'meeting.png', meses:L("meses_005"),
+    intro:L("intro_005") +
+      L("data_050"),
+    dilemaC:L("dilemaC_005"),
+    dilemaD:L("dilemaD_005"),
+    cons:{
+      CC:L("CC_005"),
+      CD:L("CD_005"),
+      DC:L("DC_005"),
+      DD:L("data_051")
+    }
+  },
+
+  /* ---------- RODADA 3 — L("data_052") ---------- */
+  r3_AL: {
+    rodadaTitulo:L("rodadaTitulo_006"), titulo:L("titulo_006"), img:'office.png', meses:L("meses_006"),
+    intro:L("intro_006") +
+      L("data_053"),
+    dilemaC:L("dilemaC_006"),
+    dilemaD:L("dilemaD_006"),
+    cons:{
+      CC:L("CC_006"),
+      CD:L("CD_006"),
+      DC:L("DC_006"),
+      DD:L("data_054")
+    }
+  },
+  r3_TR: {
+    rodadaTitulo:L("rodadaTitulo_007"), titulo:L("titulo_007"), img:'office.png', meses:L("meses_007"),
+    intro:L("intro_007") +
+      L("data_055"),
+    dilemaC:L("dilemaC_007"),
+    dilemaD:L("dilemaD_007"),
+    cons:{
+      CC:L("CC_007"),
+      CD:L("CD_007"),
+      DC:L("DC_007"),
+      DD:L("data_056")
+    }
+  },
+  r3_DE: {
+    rodadaTitulo:L("rodadaTitulo_008"), titulo:L("titulo_008"), img:'office.png', meses:L("meses_008"),
+    subtitulo:L("subtitulo_004"),
+    intro:L("intro_008") +
+      L("data_057") +
+      L("data_058"),
+    dilemaC:L("dilemaC_008"),
+    dilemaD:L("dilemaD_008"),
+    cons:{
+      CC:L("CC_008"),
+      CD:L("CD_008"),
+      DC:L("DC_008"),
+      DD:L("data_059")
+    }
+  },
+  r3_DX: {
+    rodadaTitulo:L("rodadaTitulo_009"), titulo:L("titulo_009"), img:'elevator.png', meses:L("meses_009"),
+    subtitulo:L("subtitulo_005"),
+    intro:L("intro_009") +
+      L("data_060"),
+    dilemaC:L("dilemaC_009"),
+    dilemaD:L("dilemaD_009"),
+    cons:{
+      CC:L("CC_009"),
+      CD:L("CD_009"),
+      DC:L("DC_009"),
+      DD:L("data_061")
+    }
+  },
+  r3_RU: {
+    rodadaTitulo:L("rodadaTitulo_010"), titulo:L("titulo_010"), img:'meeting.png', meses:L("meses_010"),
+    intro:L("intro_010") +
+      L("data_062"),
+    dilemaC:L("dilemaC_010"),
+    dilemaD:L("dilemaD_010"),
+    cons:{
+      CC:L("CC_010"),
+      CD:L("CD_010"),
+      DC:L("DC_010"),
+      DD:L("data_063")
+    }
+  },
+
+  /* ---------- RODADA 4 — L("data_064") ---------- */
+  r4_AL: {
+    rodadaTitulo:L("rodadaTitulo_011"), titulo:L("titulo_011"), img:'elevator.png', meses:L("meses_011"),
+    intro:L("intro_011") +
+      L("data_065"),
+    dilemaC:L("dilemaC_011"),
+    dilemaD:L("dilemaD_011"),
+    cons:{
+      CC:L("CC_011"),
+      CD:L("CD_011"),
+      DC:L("DC_011"),
+      DD:L("data_066")
+    }
+  },
+  r4_TR: {
+    rodadaTitulo:L("rodadaTitulo_012"), titulo:L("titulo_012"), img:'elevator.png', meses:L("meses_012"),
+    intro:L("intro_012") +
+      L("data_067"),
+    dilemaC:L("dilemaC_012"),
+    dilemaD:L("dilemaD_012"),
+    cons:{
+      CC:L("CC_012"),
+      CD:L("CD_012"),
+      DC:L("DC_012"),
+      DD:L("data_068")
+    }
+  },
+  r4_DE: {
+    rodadaTitulo:L("rodadaTitulo_013"), titulo:L("titulo_013"), img:'meeting.png', meses:L("meses_013"),
+    subtitulo:L("subtitulo_006"),
+    intro:L("intro_013") +
+      L("data_069"),
+    dilemaC:L("dilemaC_013"),
+    dilemaD:L("dilemaD_013"),
+    cons:{
+      CC:L("CC_013"),
+      CD:L("CD_013"),
+      DC:L("DC_013"),
+      DD:L("data_070")
+    }
+  },
+  r4_DX: {
+    rodadaTitulo:L("rodadaTitulo_014"), titulo:L("titulo_014"), img:'meeting.png', meses:L("meses_014"),
+    subtitulo:L("subtitulo_007"),
+    intro:L("intro_014") +
+      L("data_071"),
+    dilemaC:L("dilemaC_014"),
+    dilemaD:L("dilemaD_014"),
+    cons:{
+      CC:L("CC_014"),
+      CD:L("CD_014"),
+      DC:L("DC_014"),
+      DD:L("data_072")
+    }
+  },
+  r4_RU: {
+    rodadaTitulo:L("rodadaTitulo_015"), titulo:L("titulo_015"), img:'meeting.png', meses:L("meses_015"),
+    intro:L("intro_015"),
+    dilemaC:L("dilemaC_015"),
+    dilemaD:L("dilemaD_015"),
+    cons:{
+      CC:L("CC_015"),
+      CD:L("CD_015"),
+      DC:L("DC_015"),
+      DD:L("data_073")
+    }
+  },
+
+  /* ---------- RODADA 5 — três TEMAS por trajetória ---------- */
+  r5_COOP: {
+    rodadaTitulo:L("rodadaTitulo_016"), titulo:L("titulo_016"), img:'rooftop.png', meses:L("meses_016"),
+    subtitulo:L("subtitulo_008"),
+    intro:L("intro_016") +
+      L("data_074") +
+      L("data_075"),
+    dilemaC:L("dilemaC_016"),
+    dilemaD:L("dilemaD_016"),
+    cons:{
+      CC:L("CC_016"),
+      CD:L("CD_016"),
+      DC:L("DC_016"),
+      DD:L("data_076")
+    }
+  },
+  r5_DESC: {
+    rodadaTitulo:L("rodadaTitulo_017"), titulo:L("titulo_017"), img:'meeting.png', meses:L("meses_017"),
+    subtitulo:L("subtitulo_009"),
+    intro:L("intro_017") +
+      L("data_077") +
+      L("data_078"),
+    dilemaC:L("dilemaC_017"),
+    dilemaD:L("dilemaD_017"),
+    cons:{
+      CC:L("CC_017"),
+      CD:L("CD_017"),
+      DC:L("DC_017"),
+      DD:L("data_079")
+    }
+  },
+  r5_RUP: {
+    rodadaTitulo:L("rodadaTitulo_018"), titulo:L("titulo_018"), img:'auditoria.png', meses:L("meses_018"),
+    subtitulo:L("subtitulo_010"),
+    intro:L("intro_018") +
+      L("data_080"),
+    dilemaC:L("dilemaC_018"),
+    dilemaD:L("dilemaD_018"),
+    cons:{
+      CC:L("CC_018"),
+      CD:L("CD_018"),
+      DC:L("DC_018"),
+      DD:L("data_081")
+    }
+  },
+
+  /* ---------- RODADA 6 — três TEMAS por trajetória → epílogos ---------- */
+  r6_COOP: {
+    rodadaTitulo:L("rodadaTitulo_019"), titulo:L("titulo_019"), img:'rooftop.png', meses:L("meses_019"),
+    subtitulo:L("subtitulo_011"),
+    intro:L("intro_019") +
+      L("data_082") +
+      L("data_083"),
+    dilemaC:L("dilemaC_019"),
+    dilemaD:L("dilemaD_019"),
+    cons:{
+      CC:L("CC_019"),
+      CD:L("CD_019"),
+      DC:L("DC_019"),
+      DD:L("data_084")
+    }
+  },
+  r6_DESC: {
+    rodadaTitulo:L("rodadaTitulo_020"), titulo:L("titulo_020"), img:'meeting.png', meses:L("meses_020"),
+    subtitulo:L("subtitulo_012"),
+    intro:L("intro_020") +
+      L("data_085") +
+      L("data_086"),
+    dilemaC:L("dilemaC_020"),
+    dilemaD:L("dilemaD_020"),
+    cons:{
+      CC:L("CC_020"),
+      CD:L("CD_020"),
+      DC:L("DC_020"),
+      DD:L("data_087")
+    }
+  },
+  r6_RUP: {
+    rodadaTitulo:L("rodadaTitulo_021"), titulo:L("titulo_021"), img:'acerto.png', meses:L("meses_021"),
+    subtitulo:L("subtitulo_013"),
+    intro:L("intro_021") +
+      L("data_088"),
+    dilemaC:L("dilemaC_021"),
+    dilemaD:L("dilemaD_021"),
+    cons:{
+      CC:L("CC_021"),
+      CD:L("CD_021"),
+      DC:L("DC_021"),
+      DD:L("data_089")
+    }
+  }
+};
+
+/* ============================================================================
+   4) FRAGMENTOS POR ESTADO (§10) — cada categoria tem VARIAÇÕES.
+   O motor roda as variações: nunca repete a mesma frase em rodadas seguidas e
+   evita repetir a mesma categoria em rodadas consecutivas (ver escolherFragmentos).
+   ============================================================================ */
+const FRAGMENTOS = [
+  { id:'sob_suspeita',
+    // inflou e ainda não caiu: traiu agora e a trapaça ainda não foi descoberta
+    cond:(c)=> c.minha === 'D' && !c.trapacaDescoberta,
+    variacoes:[
+      L("variacao_001"),
+      L("variacao_002"),
+      L("variacao_003")
+    ]},
+
+  { id:'beira_demissao',
+    cond:(c)=> c.eficiencia < 35 || c.reputacao < 35,
+    variacoes:[
+      L("variacao_004"),
+      L("variacao_005")
+    ]},
+
+  { id:'reconciliacao',
+    // cooperou agora depois de ter traído em alguma rodada anterior
+    cond:(c)=> c.minha === 'C' && c.jaTraiuAntes,
+    variacoes:[
+      L("variacao_006"),
+      L("variacao_007"),
+      L("variacao_008"),
+      L("variacao_009")
+    ]},
+
+  { id:'confianca_alta',
+    cond:(c)=> c.confianca >= 80,
+    variacoes:[
+      L("variacao_010"),
+      L("variacao_011")
+    ]},
+
+  { id:'exploracao_repetida',
+    // traiu um cooperador (quadrante DC) duas ou mais vezes
+    cond:(c)=> c.exploreiCount >= 2,
+    variacoes:[
+      L("variacao_012"),
+      L("variacao_013")
+    ]},
+
+  { id:'reputacao_em_queda',
+    cond:(c)=> c.reputacao < 45,
+    variacoes:[
+      L("variacao_014"),
+      L("variacao_015")
+    ]},
+
+  { id:'eficiencia_subindo_falso',
+    // primeira trapaça da partida, com a eficiência inflada
+    cond:(c)=> c.minha === 'D' && c.dCount === 1,
+    variacoes:[
+      L("variacao_016"),
+      L("variacao_017")
+    ]}
+];
+
+/* ============================================================================
+   5) EPÍLOGOS (§11) — vários podem coexistir; promoção e demissão se excluem.
+   Aplicam-se ao jogador E à IA: a demissão de [RIVAL] tem o seu próprio destino.
+   ============================================================================ */
+const EPILOGOS = [
+  { id:'demissao', tom:'bad', titulo:L("titulo_022"), alvo:'voce',
+    texto:L("texto_001") +
+          L("data_090"),
+    cond:(f)=> f.demitido },
+
+  // Mesmo destino, aplicado a [RIVAL] (o texto do pacote é neutro de pessoa).
+  { id:'demissao_rival', tom:'rival', titulo:L("titulo_023"), alvo:'rival',
+    texto:L("texto_002") +
+          L("data_091"),
+    cond:(f)=> f.demitidoRival },
+
+  { id:'promocao_sustentavel', tom:'good', titulo:L("titulo_024"), alvo:'voce',
+    texto:L("texto_003") +
+          L("data_092"),
+    cond:(f)=> !f.demitido && f.reputacao >= 60 && f.eficiencia >= 70 &&
+               f.confianca >= 60 && f.patrimonio >= CFG.epilogo.patrimonioAlto && f.cargoIdx >= 1 },
+
+  { id:'oportunista', tom:'', titulo:L("titulo_025"), alvo:'voce',
+    texto:L("texto_004") +
+          L("data_093"),
+    cond:(f)=> !f.demitido && f.patrimonio >= CFG.epilogo.patrimonioAlto &&
+               (f.reputacao < 50 || f.confianca < 35) },
+
+  { id:'invisivel', tom:'', titulo:L("titulo_026"), alvo:'voce',
+    texto:L("texto_005") +
+          L("data_094"),
+    cond:(f)=> !f.demitido && f.reputacao >= CFG.epilogo.reputacaoBoa &&
+               f.patrimonio <= CFG.epilogo.patrimonioBaixo && f.cargoIdx === 0 },
+
+  { id:'ingenua_explorada', tom:'', titulo:L("titulo_027"), alvo:'voce',
+    texto:L("texto_006") +
+          L("data_095") +
+          L("data_096"),
+    cond:(f)=> f.cCount >= 3 && f.traidoCount >= 3 && f.patrimonio <= CFG.epilogo.patrimonioBaixo },
+
+  { id:'alta_producao', tom:'', titulo:L("titulo_028"), alvo:'voce',
+    texto:L("texto_007") +
+          L("data_097"),
+    cond:(f)=> f.eficiencia >= 70 && f.reputacao < CFG.epilogo.reputacaoFraca },
+
+  { id:'parceria', tom:'good', titulo:L("titulo_029"), alvo:'duo',
+    texto:L("texto_008") +
+          L("data_098"),
+    cond:(f)=> !f.demitido && !f.demitidoRival && f.confianca >= CFG.epilogo.confiancaAlta &&
+               f.reputacao >= 70 && f.reputacaoRival >= 70 },
+
+  { id:'burocracia', tom:'bad', titulo:L("titulo_030"), alvo:'duo',
+    texto:L("texto_009") +
+          L("data_099"),
+    cond:(f)=> f.confianca < CFG.epilogo.confiancaRuptura },
+
+  { id:'reconstrucao', tom:'good', titulo:L("titulo_031"), alvo:'duo',
+    texto:L("texto_010") +
+          L("data_100"),
+    cond:(f)=> !f.demitido && f.confiancaMinima <= CFG.epilogo.fundoDoPocoConfianca &&
+               f.confianca >= CFG.epilogo.reconstrucaoConfiancaFinal }
+];
+
+/* ============================================================================
+   6) ARQUÉTIPOS DE [RIVAL] (§12) — regra de decisão + texto de sabor.
+   `jogada(ctx)` recebe: ctx.rodada (1-based), ctx.meus (jogadas do JOGADOR)
+   e ctx.dele (jogadas do RIVAL). Retorna 'C' ou 'D'.
+   ============================================================================ */
+const ARQUETIPOS = [
+  { id:'all_cooperate', nome:L("nome_009"),
+    jogada:()=> 'C',
+    sabor:L("sabor_001"),
+    impacto:L("data_101") },
+
+  { id:'all_cheat', nome:L("nome_010"),
+    jogada:()=> 'D',
+    sabor:L("sabor_002"),
+    impacto:L("data_102") },
+
+  { id:'tit_for_tat', nome:L("nome_011"),
+    // Coopera na 1ª rodada; depois copia a última jogada do jogador.
+    jogada:(ctx)=> ctx.meus.length === 0 ? 'C' : ctx.meus[ctx.meus.length-1],
+    sabor:L("sabor_003"),
+    impacto:L("data_103") },
+
+  { id:'grudger', nome:L("nome_012"),
+    // Coopera até a primeira traição do jogador; depois trai para sempre.
+    jogada:(ctx)=> ctx.meus.includes('D') ? 'D' : 'C',
+    sabor:L("sabor_004"),
+    impacto:L("data_104") },
+
+  { id:'detective', nome:L("nome_013"),
+    // Abertura fixa C, D, C, C. Se o jogador retaliou (jogou D) nas rodadas de
+    // teste, passa a jogar Copycat; senão, passa a trair sempre.
+    jogada:(ctx)=>{
+      const abertura = ['C','D','C','C'];
+      if (ctx.rodada <= 4) return abertura[ctx.rodada-1];
+      const jogadorRetaliou = ctx.meus.slice(0,4).includes('D');
+      return jogadorRetaliou ? ctx.meus[ctx.meus.length-1] : 'D';
+    },
+    sabor:L("sabor_005"),
+    impacto:L("data_105") },
+
+  { id:'copykitten', nome:L("nome_014"),
+    // Como Copycat, mas só trai depois de DUAS traições consecutivas do jogador.
+    jogada:(ctx)=>{
+      const n = ctx.meus.length;
+      if (n < 2) return 'C';
+      return (ctx.meus[n-1] === 'D' && ctx.meus[n-2] === 'D') ? 'D' : 'C';
+    },
+    sabor:L("sabor_006"),
+    impacto:L("data_106") },
+
+  { id:'simpleton', nome:L("nome_015"),
+    // Win-stay, lose-shift: repete a própria jogada se o resultado da rodada
+    // anterior foi bom (recebeu cooperação); troca se foi ruim.
+    jogada:(ctx)=>{
+      const n = ctx.meus.length;
+      if (n === 0) return 'C';
+      const minhaUltima = ctx.dele[n-1];
+      const resultadoBom = ctx.meus[n-1] === 'C';
+      if (resultadoBom) return minhaUltima;
+      return minhaUltima === 'C' ? 'D' : 'C';
+    },
+    sabor:L("sabor_007"),
+    impacto:L("data_107") },
+
+  { id:'random', nome:L("nome_016"),
+    // Cara ou coroa, com semente reproduzível (ver CFG.sementeAleatoria).
+    jogada:(ctx)=> ctx.rng() < 0.5 ? 'C' : 'D',
+    sabor:L("sabor_008"),
+    impacto:L("data_108") }
+];
+
+/* ============================================================================
+   6b) DESFECHO (§13) — a Marina te chama na sala
+   Três partes: (A) a fala da Marina, escolhida pela combinação de epílogos;
+   (B) a arte do destino, sempre em cenas do próprio mundo do jogo;
+   (C) as duas leituras de perfil — a do jogador e a do arquétipo da IA.
+   ============================================================================ */
+
+/* --- §13-A · Falas da Marina, por epílogo do jogador ---------------------- */
+const MARINA = {
+  promocao_sustentavel:
+    L("data_109") +
+    L("data_110") +
+    L("data_111"),
+  demissao:
+    L("data_112") +
+    L("data_113"),
+  oportunista:
+    L("data_114") +
+    L("data_115"),
+  invisivel:
+    L("data_116") +
+    L("data_117"),
+  ingenua_explorada:
+    L("data_118") +
+    L("data_119"),
+  parceria:
+    L("data_120") +
+    L("data_121"),
+  burocracia:
+    L("data_122") +
+    L("data_123"),
+  reconstrucao:
+    L("data_124") +
+    L("data_125")
+};
+/* Prioridade de escolha quando vários epílogos coexistem. */
+const MARINA_ORDEM = ['demissao','promocao_sustentavel','parceria','oportunista','ingenua_explorada',
+                      'invisivel','reconstrucao','burocracia'];
+/* L("data_126") não tem fala própria no pacote; reaproveita a
+   do Oportunista, que descreve exatamente esse quadro (entrega bem, ninguém quer perto). */
+const MARINA_ALIAS = { alta_producao: 'oportunista' };
+/* Acréscimo previsto no pacote quando [RIVAL] cai por trapacear demais. */
+const MARINA_RIVAL_DEMITIDO =
+  L("marinaRivalDemitido");
+
+/* --- §13-B · Arte do destino: cenas do jogo, nunca presídio ---------------- */
+const DESTINO = {
+  promocao_sustentavel: { img:'rooftop.png',  legenda:L("data_127") },
+  demissao:             { img:'office.png',   legenda:L("data_128") },
+  oportunista:          { img:'elevator.png', legenda:L("data_129") },
+  invisivel:            { img:'office.png',   legenda:L("data_130") },
+  parceria:             { img:'rooftop.png',  legenda:L("legenda_001"), duplo:true },
+  burocracia:           { img:'meeting.png',  legenda:L("data_131") },
+  ingenua_explorada:    { img:'office.png',   legenda:L("data_132") },
+  reconstrucao:         { img:'cafe.png',     legenda:L("data_133") },
+  alta_producao:        { img:'meeting.png',  legenda:L("data_134") },
+  demissao_rival:       { img:'office.png',   legenda:L("data_135") }
+};
+
+/* --- §13-C · Leitura do SEU perfil ---------------------------------------- */
+const PERFIS = {
+  reciproco: { nome:L("nome_017"),
+    pessoal:L("pessoal_001"),
+    social:L("social_001") +
+           L("data_136") },
+  cooperador_ingenuo: { nome:L("nome_018"),
+    pessoal:L("pessoal_002"),
+    social:L("social_002") +
+           L("data_137") },
+  trapaceiro: { nome:L("nome_019"),
+    pessoal:L("pessoal_003"),
+    social:L("social_003") +
+           L("data_138") },
+  oportunista: { nome:L("nome_020"),
+    pessoal:L("pessoal_004"),
+    social:L("social_004") +
+           L("data_139") },
+  rancoroso: { nome:L("nome_021"),
+    pessoal:L("pessoal_005") +
+            L("data_140"),
+    social:L("data_141") },
+  inconstante: { nome:L("nome_022"),
+    pessoal:L("pessoal_006") +
+            L("data_142"),
+    social:L("data_143") }
+};
+
+/* Classifica o padrão de jogadas do jogador (heurística do §13-C).
+   A ordem de teste importa: o caso mais específico vem primeiro. */
+function perfilJogador(){
+  const m = S.meus, o = S.dele, n = m.length;
+  if (!n) return PERFIS.inconstante;
+  const coop = m.filter(x => x === 'C').length;
+  const pCoop = coop / n;
+
+  // quantas traições sofridas e quantas foram revidadas na rodada seguinte
+  let sofridas = 0, revides = 0;
+  for (let i = 0; i < n - 1; i++){
+    if (o[i] === 'D'){ sofridas++; if (m[i+1] === 'D') revides++; }
+  }
+  // bloco inicial de cooperação seguido de traição até o fim
+  let k = 0; while (k < n && m[k] === 'C') k++;
+  const rancoroso = k >= 2 && k < n && m.slice(k).every(x => x === 'D') && (n - k) >= 2;
+  // rodadas de maior valor: a da promoção (4) e a do cliente/final (6)
+  const traiuSoNasGrandes = m.some(x => x === 'D') &&
+                            m.every((x, i) => x === 'C' || i + 1 === 4 || i + 1 === 6);
+  // traições que NÃO foram resposta a uma traição sofrida na rodada anterior
+  let semProvocacao = 0;
+  for (let i = 0; i < n; i++) if (m[i] === 'D' && (i === 0 || o[i-1] !== 'D')) semProvocacao++;
+
+  if (rancoroso)                                        return PERFIS.rancoroso;
+  if (pCoop > 0.5 && traiuSoNasGrandes)                 return PERFIS.oportunista;
+  if (pCoop <= 0.4)                                     return PERFIS.trapaceiro;
+  if (pCoop >= 0.8 && sofridas >= 1 && revides === 0)   return PERFIS.cooperador_ingenuo;
+  // recíproco de verdade: começa cooperando e só trai para revidar
+  if (m[0] === 'C' && pCoop >= 0.5 && semProvocacao === 0) return PERFIS.reciproco;
+  return PERFIS.inconstante;
+}
+
+/* Monta a fala da Marina pela COMBINAÇÃO de epílogos do jogador.
+   Devolve um vetor: a fala principal (pela ordem de prioridade) e, quando também
+   couber, a fala sobre a relação (parceria ou reconstrução), que de outro modo
+   ficaria sempre ofuscada por falas de prioridade mais alta. */
+function falaDaMarina(idsEpilogos){
+  const ids = idsEpilogos.map(id => MARINA_ALIAS[id] || id);
+  let principal = null;
+  for (const chave of MARINA_ORDEM) if (ids.indexOf(chave) !== -1){ principal = chave; break; }
+  if (!principal) principal = 'invisivel';        // rede de segurança: nunca fica sem fala
+  const falas = [MARINA[principal]];
+  for (const extra of ['parceria', 'reconstrucao', 'burocracia']){
+    if (extra !== principal && ids.indexOf(extra) !== -1){ falas.push(MARINA[extra]); break; }
+  }
+  return falas;
+}
+
+/* Ordem de prioridade da ARTE — diferente da ordem das falas: a imagem da dupla
+   vem antes da promoção, senão o final de parceria nunca seria mostrado. */
+const DESTINO_ORDEM = ['demissao','parceria','promocao_sustentavel','oportunista','ingenua_explorada',
+                       'invisivel','reconstrucao','burocracia','alta_producao','demissao_rival'];
+
+/* Escolhe a arte do destino pela combinação de epílogos do jogador. */
+function arteDoDestino(idsEpilogos){
+  for (const chave of DESTINO_ORDEM) if (idsEpilogos.indexOf(chave) !== -1) return DESTINO[chave];
+  for (const id of idsEpilogos) if (DESTINO[id]) return DESTINO[id];
+  return DESTINO.invisivel;
+}
+
+/* ============================================================================
+   7) MOTOR DO JOGO — economia SIMÉTRICA
+   Jogador e IA são tratados pelo mesmo conjunto de regras. Cada um tem streak
+   de traições, eficiência, reputação, dívida-IA defasada, bônus, cargo e
+   patrimônio próprios. Só a CONFIANÇA da relação é compartilhada.
+   ============================================================================ */
+
+/* Gerador pseudoaleatório com semente (mulberry32) — resultados reproduzíveis. */
+function criarRng(semente){
+  let a = semente >>> 0;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const limitar = (v)=> Math.max(0, Math.min(100, Math.round(v)));
+const brl = (v)=> 'R$ ' + Math.round(v).toLocaleString('pt-BR');
+
+let S = null;   // estado global da partida
+
+/* Ficha de um personagem — jogador e IA usam exatamente a mesma estrutura. */
+function novaFicha(nome){
+  return {
+    nome,
+    rep: CFG.inicial.reputacao,
+    efi: CFG.inicial.eficiencia,
+    streak: 0,               // traições consecutivas
+    dividaPend: 0,           // dívida-IA que vence NESTA rodada
+    dividaAgend: 0,          // dívida-IA gerada para a PRÓXIMA rodada
+    trapacaDescoberta: false,
+    exploracaoPremiada: false, // já recebeu o bônus de 1ª exploração
+    cargoIdx: CFG.inicial.cargoIdx,
+    patrimonio: CFG.inicial.patrimonio,
+    bonus: 0,                // bônus da rodada corrente
+    demitido: false
+  };
+}
+
+function novaPartida(nomeJogador, arquetipoId, semente){
+  const rival = nomeJogador === 'Pedro' ? 'Sofia' : 'Pedro';
+  const arq = ARQUETIPOS.find(a => a.id === arquetipoId) || ARQUETIPOS[0];
+  // A semente é fixa por padrão (partidas reproduzíveis, útil em sala). No modo
+  // narrativa a interface passa uma semente nova a cada partida, para que o
+  // arquétipo Aleatório não repita sempre a mesma sequência.
+  const sem = (semente === undefined) ? CFG.sementeAleatoria : (semente >>> 0);
+  S = {
+    jogador: nomeJogador,
+    rival: rival,
+    arquetipo: arq,
+    semente: sem,
+    rng: criarRng(sem),                    // decisões do arquétipo Aleatório
+    rngTexto: criarRng(sem ^ 0x5f3a),      // sorteio de variações de texto
+
+    rodada: 1,
+    estado: 'TR',                                  // estado de relação inicial (§2)
+    confianca: CFG.inicial.confianca,
+    confiancaMinima: CFG.inicial.confianca,
+    eu:  novaFicha(nomeJogador),
+    riv: novaFicha(rival),
+
+    meus: [], dele: [],
+    historico: [],
+    // séries por rodada para os gráficos (índice 0 = estado inicial)
+    serie: {
+      rodada:[0], confianca:[CFG.inicial.confianca],
+      euRep:[CFG.inicial.reputacao],  rivRep:[CFG.inicial.reputacao],
+      euEfi:[CFG.inicial.eficiencia], rivEfi:[CFG.inicial.eficiencia],
+      euPat:[0], rivPat:[0], euBonus:[], rivBonus:[]
+    },
+    fragUso: {},              // controle de variações já usadas por categoria
+    fragAnterior: [],         // categorias usadas na rodada anterior
+    cCount: 0, dCount: 0,
+    traidoCount: 0,           // quadrante CD (fui explorado)
+    exploreiCount: 0,         // quadrante DC (explorei)
+    fim: false,
+    fimMotivo: ''
+  };
+  return S;
+}
+
+/* Chave da cena para a rodada e o estado atuais (§3).
+   Rodadas 5 e 6 escolhem entre TRÊS TEMAS distintos pelo grupo de estado. */
+function chaveCena(rodada, estado){
+  if (rodada === 1) return 'r1_TR';
+  if (rodada <= 4)  return 'r' + rodada + '_' + estado;
+  const grupo = (estado === 'AL' || estado === 'TR') ? 'COOP'
+              : (estado === 'RU') ? 'RUP' : 'DESC';
+  return 'r' + rodada + '_' + grupo;
+}
+
+/* Transição de estado após a rodada (§2). */
+function proximoEstado(estadoAtual, quad){
+  if (quad === 'DC') return 'DE';
+  if (quad === 'CD') return 'DX';
+  if (quad === 'DD') return 'RU';
+  if (estadoAtual === 'AL' || estadoAtual === 'TR') return 'AL';
+  return 'TR';
+}
+
+/* Jogada determinística de [RIVAL] pelo arquétipo + histórico. */
+function jogadaRival(){
+  return S.arquetipo.jogada({
+    rodada: S.rodada,
+    meus: S.meus.slice(),
+    dele: S.dele.slice(),
+    rng: S.rng
+  });
+}
+
+/* Aplica os deltas de reputação e eficiência a UMA ficha, pela ação DELA.
+   `quadProprio` é o quadrante visto por esse personagem ('CC','CD','DC','DD'),
+   onde a primeira letra é sempre a ação dele. Devolve os deltas aplicados. */
+function aplicarDeltas(p, acao, quadProprio){
+  const repAntes = p.rep, efiAntes = p.efi;
+  if (acao === 'C'){
+    p.streak = 0;
+    p.rep += CFG.cooperar.reputacao;
+    p.efi += CFG.cooperar.eficiencia;
+  } else {
+    p.streak += 1;
+    p.rep += (p.streak === 1 && quadProprio === 'DC')
+           ? CFG.trair.reputacaoExploraCooperador
+           : CFG.trair.reputacao;
+    p.efi += p.streak === 1 ? CFG.trair.eficienciaStreak1
+           : p.streak === 2 ? CFG.trair.eficienciaStreak2
+           : CFG.trair.eficienciaStreak3ouMais;
+    p.dividaAgend += CFG.dividaIA;   // a conta chega na rodada seguinte
+  }
+  p.efi -= p.dividaPend;             // dívida-IA da rodada anterior vence agora
+  p.rep = limitar(p.rep);
+  p.efi = limitar(p.efi);
+  return { rep: p.rep - repAntes, efi: p.efi - efiAntes };
+}
+
+/* Bônus da entrega para UMA ficha, pelo quadrante que ELA viu. */
+function calcularBonus(p, acao, quadProprio){
+  const B = CFG.bonus;
+  if (acao === 'D' && (p.efi < B.trapacaEficienciaMin || p.trapacaDescoberta)) return B.trapacaExposta;
+  if (quadProprio === 'DC' && !p.exploracaoPremiada){ p.exploracaoPremiada = true; return B.exploraCooperadorPrimeira; }
+  if (quadProprio === 'CC') return B.cooperacaoMutua + (p.rep >= B.reputacaoMin ? B.extraReputacaoAlta : 0);
+  if (quadProprio === 'DD') return B.traicaoMutua;
+  if (quadProprio === 'CD') return B.cooperouEFoiTraido;
+  return B.traicaoMutua;
+}
+
+/* Fecha o período de UMA ficha: salário + bônus, promoção e demissão. */
+function fecharPeriodo(p, acao, confianca){
+  const salarioMes = p.demitido ? 0 : CFG.cargos[p.cargoIdx].salario;
+  const salarioPeriodo = salarioMes * CFG.mesesPorRodada;
+  p.patrimonio += salarioPeriodo + p.bonus;
+
+  let promovido = false;
+  if (!p.demitido && acao === 'C' && p.cargoIdx < CFG.cargos.length - 1 &&
+      p.rep >= CFG.promocao.reputacaoMin &&
+      p.efi >= CFG.promocao.eficienciaMin &&
+      confianca >= CFG.promocao.confiancaMin){
+    p.cargoIdx++; promovido = true;
+  }
+  let demitidoAgora = false;
+  if (!p.demitido && (p.rep < CFG.demissao.reputacaoMin || p.efi < CFG.demissao.eficienciaMin)){
+    p.demitido = true; demitidoAgora = true;
+  }
+  return { salarioPeriodo, promovido, demitidoAgora };
+}
+
+/* Escolhe os fragmentos da rodada, sem repetir frase nem categoria seguidas. */
+function escolherFragmentos(ctx){
+  const aplicaveis = FRAGMENTOS.filter(f => f.cond(ctx));
+  // evita repetir a mesma CATEGORIA em rodadas consecutivas
+  let pool = aplicaveis.filter(f => !S.fragAnterior.includes(f.id));
+  if (pool.length === 0) { S.fragAnterior = []; return []; }
+
+  const escolhidos = pool.slice(0, CFG.maxFragmentosPorRodada);
+  S.fragAnterior = escolhidos.map(f => f.id);
+  return escolhidos.map(f => {
+    const uso = S.fragUso[f.id] || (S.fragUso[f.id] = { usadas: [], ultima: -1 });
+    // prefere uma VARIAÇÃO ainda não usada; se acabaram, recomeça sem repetir a última
+    let cand = f.variacoes.map((_, i) => i).filter(i => uso.usadas.indexOf(i) === -1);
+    if (cand.length === 0){
+      uso.usadas = [];
+      cand = f.variacoes.map((_, i) => i).filter(i => i !== uso.ultima);
+      if (cand.length === 0) cand = [0];
+    }
+    const i = cand[Math.floor(S.rngTexto() * cand.length)];
+    uso.usadas.push(i); uso.ultima = i;
+    return f.variacoes[i];
+  });
+}
+
+/* Processa uma rodada completa. Devolve o relatório da rodada. */
+function jogarRodada(minha){
+  const estadoAntes = S.estado;
+  const cenaKey = chaveCena(S.rodada, estadoAntes);
+  const dele = jogadaRival();
+  const quad = minha + dele;          // quadrante na perspectiva do JOGADOR
+  const quadRival = dele + minha;     // quadrante na perspectiva da IA
+
+  const antes = {
+    conf: S.confianca,
+    eu:  { rep: S.eu.rep,  efi: S.eu.efi,  pat: S.eu.patrimonio,  cargo: S.eu.cargoIdx },
+    riv: { rep: S.riv.rep, efi: S.riv.efi, pat: S.riv.patrimonio, cargo: S.riv.cargoIdx }
+  };
+
+  // --- A dívida-IA agendada na rodada anterior vence agora (para os dois) ---
+  [S.eu, S.riv].forEach(p => {
+    p.dividaPend = p.dividaAgend; p.dividaAgend = 0;
+    if (p.dividaPend > 0) p.trapacaDescoberta = true;
+  });
+
+  // --- Deltas de KPI: MESMAS regras para jogador e IA ---
+  const dEu  = aplicarDeltas(S.eu,  minha, quad);
+  const dRiv = aplicarDeltas(S.riv, dele,  quadRival);
+
+  // --- Confiança da relação (compartilhada, definida pelo quadrante) ---
+  let dConf;
+  if (quad === 'CC')      dConf = CFG.cooperar.confiancaCC;
+  else if (quad === 'DD') dConf = CFG.trair.confiancaMutua;
+  else if (minha === 'D') dConf = CFG.trair.confiancaUnilateral;   // DC
+  else                    dConf = CFG.cooperar.confiancaCD;        // CD
+  S.confianca = limitar(S.confianca + dConf);
+  if (S.confianca < S.confiancaMinima) S.confiancaMinima = S.confianca;
+
+  // --- Bônus, salário, promoção e demissão: para os DOIS ---
+  S.eu.bonus  = calcularBonus(S.eu,  minha, quad);
+  S.riv.bonus = calcularBonus(S.riv, dele,  quadRival);
+  const fEu  = fecharPeriodo(S.eu,  minha, S.confianca);
+  const fRiv = fecharPeriodo(S.riv, dele,  S.confianca);
+
+  // --- Histórico de jogadas e contadores ---
+  S.meus.push(minha); S.dele.push(dele);
+  if (minha === 'C') S.cCount++; else S.dCount++;
+  if (quad === 'CD') S.traidoCount++;
+  if (quad === 'DC') S.exploreiCount++;
+
+  // --- Transição do estado de relação ---
+  const estadoDepois = proximoEstado(estadoAntes, quad);
+  S.estado = estadoDepois;
+
+  // --- Fragmentos (perspectiva do jogador) ---
+  const fragmentos = escolherFragmentos({
+    minha, quad,
+    confianca: S.confianca, reputacao: S.eu.rep, eficiencia: S.eu.efi,
+    trapacaDescoberta: S.eu.trapacaDescoberta,
+    jaTraiuAntes: S.meus.slice(0, -1).indexOf('D') !== -1,
+    exploreiCount: S.exploreiCount, dCount: S.dCount
+  });
+
+  // --- Séries para os gráficos ---
+  S.serie.rodada.push(S.rodada);
+  S.serie.confianca.push(S.confianca);
+  S.serie.euRep.push(S.eu.rep);   S.serie.rivRep.push(S.riv.rep);
+  S.serie.euEfi.push(S.eu.efi);   S.serie.rivEfi.push(S.riv.efi);
+  S.serie.euPat.push(S.eu.patrimonio); S.serie.rivPat.push(S.riv.patrimonio);
+  S.serie.euBonus.push(S.eu.bonus);    S.serie.rivBonus.push(S.riv.bonus);
+
+  // --- Fim de jogo: 6 rodadas OU demissão de qualquer um dos dois ---
+  if (S.eu.demitido)  { S.fim = true; S.fimMotivo = 'demissao_voce'; }
+  if (S.riv.demitido) { S.fim = true; S.fimMotivo = S.eu.demitido ? 'demissao_ambos' : 'demissao_rival'; }
+  if (S.rodada >= CFG.rodadas) S.fim = true;
+
+  const rel = {
+    rodada: S.rodada, cenaKey, estadoAntes, estadoDepois, minha, dele, quad, quadRival,
+    antes, fragmentos,
+    eu:  { dRep: dEu.rep,  dEfi: dEu.efi,  bonus: S.eu.bonus,  salario: fEu.salarioPeriodo,
+           promovido: fEu.promovido, demitidoAgora: fEu.demitidoAgora, divida: S.eu.dividaPend },
+    riv: { dRep: dRiv.rep, dEfi: dRiv.efi, bonus: S.riv.bonus, salario: fRiv.salarioPeriodo,
+           promovido: fRiv.promovido, demitidoAgora: fRiv.demitidoAgora, divida: S.riv.dividaPend },
+    dConf,
+    depois: {
+      conf: S.confianca,
+      eu:  { rep: S.eu.rep,  efi: S.eu.efi,  pat: S.eu.patrimonio,  cargo: S.eu.cargoIdx },
+      riv: { rep: S.riv.rep, efi: S.riv.efi, pat: S.riv.patrimonio, cargo: S.riv.cargoIdx }
+    }
+  };
+  S.historico.push(rel);
+  return rel;
+}
+
+/* Avalia os epílogos ao fim da partida (§11). */
+function avaliarEpilogos(){
+  const f = {
+    demitido: S.eu.demitido, demitidoRival: S.riv.demitido,
+    confianca: S.confianca, confiancaMinima: S.confiancaMinima,
+    reputacao: S.eu.rep, eficiencia: S.eu.efi,
+    reputacaoRival: S.riv.rep, eficienciaRival: S.riv.efi,
+    patrimonio: S.eu.patrimonio, patrimonioRival: S.riv.patrimonio,
+    cargoIdx: S.eu.cargoIdx, cargoIdxRival: S.riv.cargoIdx,
+    cCount: S.cCount, dCount: S.dCount,
+    traidoCount: S.traidoCount, exploreiCount: S.exploreiCount
+  };
+  let lista = EPILOGOS.filter(e => e.cond(f));
+
+  // Exclusão mútua: quem foi demitido não recebe epílogos de ascensão.
+  if (S.eu.demitido){
+    lista = lista.filter(e => ['promocao_sustentavel','oportunista','parceria','invisivel','reconstrucao'].indexOf(e.id) === -1);
+  }
+
+  // Garantia de destino para o JOGADOR: nenhuma partida termina sem epílogo
+  // próprio. Quando o perfil fica no meio-termo, escolhemos o destino do
+  // pacote mais próximo do que aconteceu — sem inventar texto novo.
+  if (!lista.some(e => e.alvo === 'voce')){
+    const ordem = f.reputacao >= CFG.epilogo.reputacaoBoa
+      ? ['invisivel', 'ingenua_explorada', 'alta_producao']
+      : ['alta_producao', 'ingenua_explorada', 'invisivel'];
+    for (const id of ordem){
+      const e = EPILOGOS.find(x => x.id === id);
+      if (e && lista.indexOf(e) === -1){ lista.push(e); break; }
+    }
+  }
+  return lista;
+}
+
+/* ============================================================================
+   8) ÁUDIO — música e efeitos gerados na hora pela Web Audio API.
+   Sem arquivos, sem internet. O contexto só é criado no primeiro clique do
+   usuário, por causa das políticas de autoplay dos navegadores.
+   ============================================================================ */
+const AUDIO = {
+  ctx:null, master:null, gMusica:null, gSfx:null,
+  ligado:true, musicaRodando:false, humor:'neutro',
+  timer:null, proxNota:0, beat:0, compasso:0,
+
+  /* Preferência de som guardada entre sessões (ignorada se o navegador
+     bloquear o armazenamento em file://). */
+  carregarPreferencia(){
+    try{ const v = localStorage.getItem('cenario6_som'); if (v !== null) this.ligado = v === '1'; }catch(e){}
+  },
+  salvarPreferencia(){
+    try{ localStorage.setItem('cenario6_som', this.ligado ? '1' : '0'); }catch(e){}
+  },
+
+  iniciar(){
+    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;                       // navegador sem Web Audio: jogo segue mudo
+    this.ctx = new AC();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.9;
+    this.master.connect(this.ctx.destination);
+
+    this.gMusica = this.ctx.createGain();
+    this.gMusica.gain.value = this.ligado ? CFG.audio.volumeMusica : 0;
+    this.gMusica.connect(this.master);
+
+    this.gSfx = this.ctx.createGain();
+    this.gSfx.gain.value = this.ligado ? CFG.audio.volumeEfeitos : 0;
+    this.gSfx.connect(this.master);
+
+    if (this.ligado) this.iniciarMusica();
+  },
+
+  alternar(){
+    this.ligado = !this.ligado;
+    this.salvarPreferencia();
+    if (!this.ctx){ if (this.ligado) this.iniciar(); return; }
+    const t = this.ctx.currentTime;
+    this.gMusica.gain.cancelScheduledValues(t);
+    this.gMusica.gain.linearRampToValueAtTime(this.ligado ? CFG.audio.volumeMusica : 0, t + 0.35);
+    this.gSfx.gain.value = this.ligado ? CFG.audio.volumeEfeitos : 0;
+    if (this.ligado && !this.musicaRodando) this.iniciarMusica();
+    if (!this.ligado) this.pararMusica();
+    return this.ligado;
+  },
+
+  /* Humor da trilha conforme o estado da relação. */
+  definirHumor(estado){
+    this.humor = (estado === 'AL') ? 'alianca'
+               : (estado === 'RU') ? 'colapso'
+               : (estado === 'DE' || estado === 'DX') ? 'tenso' : 'neutro';
+  },
+
+  /* ---------------- EFEITOS ---------------- */
+  env(freqIni, freqFim, dur, tipo, pico, atraso){
+    if (!this.ctx || !this.ligado) return;
+    const t0 = this.ctx.currentTime + (atraso || 0);
+    const o = this.ctx.createOscillator();
+    o.type = tipo || 'sine';
+    o.frequency.setValueAtTime(freqIni, t0);
+    if (freqFim && freqFim !== freqIni) o.frequency.exponentialRampToValueAtTime(freqFim, t0 + dur);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(pico, t0 + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g).connect(this.gSfx);
+    o.start(t0); o.stop(t0 + dur + 0.03);
+  },
+  ruido(dur, corte, pico, atraso){
+    if (!this.ctx || !this.ligado) return;
+    const t0 = this.ctx.currentTime + (atraso || 0);
+    const n = Math.floor(this.ctx.sampleRate * dur);
+    const buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random()*2-1) * (1 - i/n);
+    const src = this.ctx.createBufferSource(); src.buffer = buf;
+    const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = corte;
+    const g = this.ctx.createGain(); g.gain.value = pico;
+    src.connect(f).connect(g).connect(this.gSfx);
+    src.start(t0);
+  },
+
+  sfx(nome){
+    if (!this.ctx || !this.ligado) return;
+    switch (nome){
+      case 'clique':                                    // toque seco de interface
+        this.env(660, 520, 0.07, 'triangle', 0.28); break;
+      case 'revelar':                                   // as duas cartas na mesa
+        this.env(440, 440, 0.10, 'sine', 0.22);
+        this.env(660, 880, 0.22, 'sine', 0.20, 0.10); break;
+      case 'positivo':                                  // bônus, moeda
+        this.env(784, 784, 0.09, 'triangle', 0.26);
+        this.env(1047, 1047, 0.16, 'triangle', 0.22, 0.08); break;
+      case 'negativo':                                  // perda, dívida vencendo
+        this.env(233, 175, 0.26, 'sawtooth', 0.20);
+        this.env(175, 131, 0.34, 'sawtooth', 0.18, 0.12); break;
+      case 'promocao':                                  // arpejo ascendente
+        [523, 659, 784, 1047].forEach((f, i) => this.env(f, f, 0.26, 'triangle', 0.22, i*0.09));
+        break;
+      case 'demissao':                                  // queda grave + baque
+        this.env(220, 82, 0.75, 'sawtooth', 0.24);
+        this.ruido(0.5, 900, 0.16, 0.05); break;
+    }
+  },
+
+  /* ---------------- MÚSICA PROCEDURAL ----------------
+     Lo-fi em Lá menor, ~84 BPM. Progressão Am7 – Fmaj7 – Cmaj7 – G,
+     com baixo, acordes tipo Rhodes, chimbau e bumbo. O humor muda a cor. */
+  iniciarMusica(){
+    if (!this.ctx || this.musicaRodando) return;
+    this.musicaRodando = true;
+    this.proxNota = this.ctx.currentTime + 0.15;
+    this.beat = 0; this.compasso = 0;
+    this.timer = setInterval(() => this.agendar(), 60);
+  },
+  pararMusica(){
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null; this.musicaRodando = false;
+  },
+  agendar(){
+    if (!this.ctx) return;
+    const durColcheia = (60 / CFG.audio.bpm) / 2;
+    while (this.proxNota < this.ctx.currentTime + 0.3){
+      this.tocarBeat(this.proxNota, this.beat, this.compasso);
+      this.proxNota += durColcheia;
+      this.beat++;
+      if (this.beat % 8 === 0) this.compasso++;
+    }
+  },
+  tocarBeat(quando, beat, compasso){
+    const h = this.humor;
+    const LA = 220;                                  // Lá 3
+    // graus da tônica de cada acorde da progressão (Am7, Fmaj7, Cmaj7, G)
+    const acordes = [
+      { raiz: 0,  notas: [0, 3, 7, 10] },            // Am7
+      { raiz: -4, notas: [0, 4, 7, 11] },            // Fmaj7
+      { raiz: 3,  notas: [0, 4, 7, 11] },            // Cmaj7
+      { raiz: -2, notas: [0, 4, 7, 10] }             // G7
+    ];
+    const ac = acordes[compasso % 4];
+    const tonica = LA * Math.pow(2, ac.raiz / 12);
+    const b = beat % 8;
+
+    // BAIXO — caminhada em colcheias
+    const passos = [0, 0, 7, 0, 5, 0, 7, 3];
+    this.nota(quando, (tonica * Math.pow(2, passos[b] / 12)) / 2,
+              0.30, 'triangle', h === 'colapso' ? 0.26 : 0.34, 620);
+
+    // ACORDES — nas cabeças (1 e 3)
+    if (b === 0 || b === 4){
+      const dur = h === 'colapso' ? 0.9 : 1.5;
+      ac.notas.forEach((s, i) => {
+        this.nota(quando, tonica * Math.pow(2, s / 12), dur, 'sine',
+                  (h === 'colapso' ? 0.06 : 0.09) * (i === 0 ? 1 : 0.62), 2200);
+      });
+      if (h === 'alianca') // nona acrescentada dá o ar mais luminoso
+        this.nota(quando, tonica * Math.pow(2, 14 / 12), 1.5, 'sine', 0.05, 2600);
+      if (h === 'tenso')   // segunda menor cria o atrito
+        this.nota(quando, tonica * Math.pow(2, 1 / 12), 0.7, 'sine', 0.04, 1500);
+    }
+
+    // CHIMBAU — colcheias; semicolcheias quando a tensão sobe
+    this.chimbau(quando);
+    if ((h === 'tenso' || h === 'colapso')) this.chimbau(quando + (60 / CFG.audio.bpm) / 4);
+
+    // BUMBO
+    if (b === 0 || b === 6) this.bumbo(quando);
+
+    // MELODIA — motivo curto a cada 4 compassos (cala no colapso)
+    if (h !== 'colapso' && compasso % 4 === 3 && (b === 2 || b === 4 || b === 7)){
+      const motivo = { 2: 12, 4: 15, 7: 19 }[b];
+      this.nota(quando, LA * Math.pow(2, motivo / 12), 0.42, 'triangle', 0.07, 3000);
+    }
+  },
+  nota(quando, hz, dur, tipo, pico, corte){
+    const o = this.ctx.createOscillator();
+    o.type = tipo; o.frequency.setValueAtTime(hz, quando);
+    const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = corte || 1800;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, quando);
+    g.gain.linearRampToValueAtTime(pico, quando + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, quando + dur);
+    o.connect(f).connect(g).connect(this.gMusica);
+    o.start(quando); o.stop(quando + dur + 0.05);
+  },
+  chimbau(quando){
+    const n = Math.floor(this.ctx.sampleRate * 0.05);
+    const buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random()*2-1) * (1 - i/n);
+    const src = this.ctx.createBufferSource(); src.buffer = buf;
+    const f = this.ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 6000;
+    const g = this.ctx.createGain(); g.gain.value = 0.035;
+    src.connect(f).connect(g).connect(this.gMusica);
+    src.start(quando);
+  },
+  bumbo(quando){
+    const o = this.ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(90, quando);
+    o.frequency.exponentialRampToValueAtTime(42, quando + 0.09);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, quando);
+    g.gain.linearRampToValueAtTime(0.22, quando + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, quando + 0.14);
+    o.connect(g).connect(this.gMusica);
+    o.start(quando); o.stop(quando + 0.17);
+  }
+};
+
+/* ============================================================================
+   9) GRÁFICOS EM SVG — árvore de decisões e evolução dos KPIs
+   Tudo desenhado à mão, sem biblioteca. Os <title> dentro do SVG viram
+   tooltips nativos do navegador ao passar o mouse.
+   ============================================================================ */
+
+const COR = { voce:'#e8c16f', rival:'#79b8f0', conf:'#7aa7e0', grade:'#332c44', eixo:'#6f6883' };
+
+/* ---------- Árvore de decisões ---------- */
+const LANES = ['CC','DC','CD','DD'];
+const LANE_COR = { CC:L("CC_022"), DC:L("DC_022"), CD:L("CD_022"), DD:'#e0566b' };
+
+function arvoreSVG(){
+  const W = 60 + CFG.rodadas * 130 + 30, H = 250;
+  const yLane = (q)=> 34 + LANES.indexOf(q) * 48;
+  const xCol  = (i)=> 62 + i * 130;
+  const hist = S.historico;
+  const curva = (x1,y1,x2,y2) => 'M' + x1 + ' ' + y1 + ' C ' + (x1+58) + ' ' + y1 +
+                                 ', ' + (x2-58) + ' ' + y2 + ', ' + x2 + ' ' + y2;
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H +
+            '" role="img" aria-label=L("ui_tree_aria")>';
+  svg += '<circle cx="18" cy="106" r="12" fill="#241f30" stroke="#e8c16f" stroke-width="2"/>' +
+         '<text x="18" y="110" text-anchor="middle" font-size="9" fill="#e8c16f" font-family="Inter,sans-serif" font-weight="700">TR</text>';
+
+  for (let i = 0; i < CFG.rodadas; i++){
+    const rel = hist[i];
+    const jogada = !!rel;
+    const xOrigem = i === 0 ? 17 : xCol(i-1);
+    const yOrigem = i === 0 ? 106 : yLane(hist[i-1] ? hist[i-1].quad : 'CC');
+    const podado = !jogada && hist.length > 0 && S.fim;
+
+    // ramificações possíveis, esmaecidas
+    const origens = i === 0 ? [{x:30, y:106}] : LANES.map(q => ({ x: xCol(i-1)+13, y: yLane(q) }));
+    origens.forEach(o => LANES.forEach(q => {
+      svg += '<path d="' + curva(o.x, o.y, xCol(i)-13, yLane(q)) + '" fill="none" ' +
+             'stroke="#4a4356" stroke-width="0.9" opacity="' + (podado ? .12 : .3) + '"/>';
+    }));
+    if (jogada){
+      svg += '<path d="' + curva(xOrigem+13, yOrigem, xCol(i)-13, yLane(rel.quad)) + '" fill="none" ' +
+             'stroke="' + LANE_COR[rel.quad] + '" stroke-width="2.8"/>';
+    }
+    LANES.forEach(q => {
+      const ativo = jogada && rel.quad === q;
+      svg += '<circle cx="' + xCol(i) + '" cy="' + yLane(q) + '" r="13" ' +
+             'fill="' + (ativo ? LANE_COR[q] : '#1c1826') + '" ' +
+             'stroke="' + (ativo ? LANE_COR[q] : '#322b42') + '" stroke-width="1.6" ' +
+             'opacity="' + (ativo ? 1 : (podado ? .25 : .6)) + '">' +
+             (ativo ? '<title>Rodada ' + (i+1) + L("ui_dash") + QUADRANTES[q].nome + '</title>' : '') +
+             '</circle>' +
+             '<text x="' + xCol(i) + '" y="' + (yLane(q)+4) + '" text-anchor="middle" font-size="10" ' +
+             'font-family="Inter,sans-serif" font-weight="700" pointer-events="none" ' +
+             'fill="' + (ativo ? '#12101a' : '#857d95') + '" opacity="' + (ativo ? 1 : (podado ? .35 : .8)) + '">' + q + '</text>';
+    });
+    // rótulos: rodada, tema jogado e estado alcançado
+    const tema = jogada ? (CENAS[rel.cenaKey].titulo || '') : '';
+    svg += '<text x="' + xCol(i) + '" y="' + (H-40) + '" text-anchor="middle" font-size="11" ' +
+           'font-family="Inter,sans-serif" font-weight="700" fill="' + (jogada ? '#e8c16f' : '#4a4356') + '">R' + (i+1) + '</text>';
+    svg += '<text x="' + xCol(i) + '" y="' + (H-25) + '" text-anchor="middle" font-size="9" ' +
+           'font-family="Inter,sans-serif" fill="' + (jogada ? '#b9b1c6' : '#4a4356') + '">' +
+           (tema.length > 20 ? tema.slice(0,19) + '…' : tema) + '</text>';
+    svg += '<text x="' + xCol(i) + '" y="' + (H-11) + '" text-anchor="middle" font-size="10" ' +
+           'font-family="Inter,sans-serif" font-weight="700" fill="' + (jogada ? '#857d95' : '#4a4356') + '">' +
+           (jogada ? rel.estadoDepois : (podado ? '—' : '?')) + '</text>';
+
+    // poda por demissão (de quem for)
+    if (jogada && (rel.eu.demitidoAgora || rel.riv.demitidoAgora) && i < CFG.rodadas - 1){
+      const quem = rel.eu.demitidoAgora && rel.riv.demitidoAgora ? L("ui_both")
+                 : rel.eu.demitidoAgora ? 'você' : S.rival;
+      svg += '<text x="' + (xCol(i)+44) + '" y="' + (yLane(rel.quad)+5) + '" text-anchor="middle" font-size="18" fill="#e0566b">&#10006;</text>' +
+             '<text x="' + (xCol(i)+44) + '" y="' + (yLane(rel.quad)+22) + '" text-anchor="middle" font-size="9" ' +
+             'font-family="Inter,sans-serif" fill="#e0566b">demissão: ' + quem + '</text>';
+    }
+  }
+  return svg + '</svg>';
+}
+
+function blocoArvore(aberto){
+  return '<details class="painel card tree" ' + (aberto ? 'open' : '') + '>' +
+    '<summary>Árvore de decisões — o caminho até aqui</summary>' +
+    '<div class="tree-scroll">' + arvoreSVG() + '</div>' +
+    '<div class="tree-legend">' +
+      '<span><i style="background:#4fbfa0"></i>CC cooperação mútua</span>' +
+      '<span><i style="background:#e8c16f"></i>DC você explorou</span>' +
+      '<span><i style="background:#7aa7e0"></i>CD você foi explorado</span>' +
+      '<span><i style="background:#e0566b"></i>DD traição mútua</span>' +
+      '<span style="opacity:.6">ramos apagados = caminhos não percorridos</span>' +
+    '</div></details>';
+}
+
+/* ---------- Gráfico de linhas (escala 0–100) ---------- */
+function graficoLinhas(titulo, series, rotuloX){
+  const W = 330, H = 176, mL = 32, mR = 12, mT = 12, mB = 30;
+  const n = Math.max(...series.map(s => s.dados.length));
+  const px = (i)=> mL + (n <= 1 ? 0 : i * (W - mL - mR) / (n - 1));
+  const py = (v)=> mT + (100 - v) * (H - mT - mB) / 100;
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + titulo + '">';
+
+  // grade e eixo Y
+  [0,25,50,75,100].forEach(v => {
+    s += '<line x1="' + mL + '" y1="' + py(v) + '" x2="' + (W-mR) + '" y2="' + py(v) +
+         '" stroke="' + COR.grade + '" stroke-width="1"/>' +
+         '<text x="' + (mL-6) + '" y="' + (py(v)+3.5) + '" text-anchor="end" font-size="9" fill="' + COR.eixo + '" font-family="Inter,sans-serif">' + v + '</text>';
+  });
+  // eixo X (rodadas)
+  for (let i = 0; i < n; i++){
+    s += '<text x="' + px(i) + '" y="' + (H-12) + '" text-anchor="middle" font-size="9" fill="' + COR.eixo +
+         '" font-family="Inter,sans-serif">' + (i === 0 ? 'ini' : 'R'+i) + '</text>';
+  }
+  s += '<text x="' + ((W+mL)/2) + '" y="' + (H-1) + '" text-anchor="middle" font-size="8.5" fill="' + COR.eixo +
+       '" font-family="Inter,sans-serif">' + (rotuloX || 'rodada') + '</text>';
+
+  // linhas
+  series.forEach(serie => {
+    const pts = serie.dados.map((v,i) => px(i) + ',' + py(v)).join(' ');
+    s += '<polyline points="' + pts + '" fill="none" stroke="' + serie.cor + '" stroke-width="2.2" ' +
+         'stroke-linejoin="round" stroke-linecap="round"' +
+         (serie.tracejado ? ' stroke-dasharray="6 4"' : '') + '/>';
+    serie.dados.forEach((v,i) => {
+      s += '<circle class="pt" cx="' + px(i) + '" cy="' + py(v) + '" r="3.4" fill="' + serie.cor + '">' +
+           '<title>' + serie.nome + L("ui_dash") + (i === 0 ? L("ui_start") : L("ui_round")+i) + ': ' + v + '</title></circle>';
+    });
+  });
+  return s + '</svg>';
+}
+
+/* ---------- Gráfico de barras agrupadas (dinheiro) ---------- */
+function graficoBarras(titulo, series, formatar){
+  const W = 330, H = 176, mL = 44, mR = 12, mT = 12, mB = 30;
+  const n = Math.max(...series.map(s => s.dados.length), 1);
+  const maxV = Math.max(1, ...series.flatMap(s => s.dados));
+  const topo = Math.ceil(maxV / 1000) * 1000 || 1000;
+  const py = (v)=> mT + (1 - v / topo) * (H - mT - mB);
+  const larguraGrupo = (W - mL - mR) / n;
+  const larguraBarra = Math.min(15, (larguraGrupo - 8) / series.length);
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + titulo + '">';
+
+  [0, .25, .5, .75, 1].forEach(f => {
+    const v = topo * f;
+    s += '<line x1="' + mL + '" y1="' + py(v) + '" x2="' + (W-mR) + '" y2="' + py(v) +
+         '" stroke="' + COR.grade + '" stroke-width="1"/>' +
+         '<text x="' + (mL-6) + '" y="' + (py(v)+3.5) + '" text-anchor="end" font-size="8.5" fill="' + COR.eixo +
+         '" font-family="Inter,sans-serif">' + (v >= 1000 ? Math.round(v/1000)+'k' : Math.round(v)) + '</text>';
+  });
+
+  for (let i = 0; i < n; i++){
+    const centro = mL + larguraGrupo * (i + 0.5);
+    series.forEach((serie, j) => {
+      const v = serie.dados[i];
+      if (v === undefined) return;
+      const x = centro - (series.length * larguraBarra)/2 + j * larguraBarra;
+      const alt = Math.max(1, (H - mB) - py(v));
+      s += '<rect class="barra" x="' + x + '" y="' + py(v) + '" width="' + (larguraBarra-2) + '" height="' + alt +
+           '" rx="2" fill="' + serie.cor + '">' +
+           '<title>' + serie.nome + ' — rodada ' + (i+1) + ': ' + formatar(v) + '</title></rect>';
+    });
+    s += '<text x="' + centro + '" y="' + (H-12) + '" text-anchor="middle" font-size="9" fill="' + COR.eixo +
+         '" font-family="Inter,sans-serif">R' + (i+1) + '</text>';
+  }
+  return s + '</svg>';
+}
+
+/* ---------- Painel completo de gráficos ---------- */
+function blocoGraficos(aberto){
+  const E = S.serie;
+  const nomeV = L("ui_you_open") + S.jogador + ')', nomeR = S.rival;
+  const jogadas = S.historico.length;
+
+  const legendaLinhas =
+    '<div class="graf-legend">' +
+      '<span><i style="background:' + COR.voce + '"></i>' + nomeV + '</span>' +
+      '<span><i class="dash"></i>' + nomeR + ' (tracejado)</span>' +
+    '</div>';
+  const legendaBarras =
+    '<div class="graf-legend">' +
+      '<span><i style="background:' + COR.voce + '"></i>' + nomeV + '</span>' +
+      '<span><i style="background:' + COR.rival + '"></i>' + nomeR + '</span>' +
+    '</div>';
+  const cartao = (titulo, sub, corpo, legenda) =>
+    '<div class="graf"><h4>' + titulo + '</h4><div class="sub">' + sub + '</div>' +
+    corpo + (jogadas ? (legenda || '') : '') + '</div>';
+  const aindaNao = '<p class="sub" style="margin:18px 0 22px">Jogue a primeira rodada para ver a evolução.</p>';
+
+  const cartoes = [
+    cartao(L("ui_trust_relation"), L("ui_trust_sub"),
+      graficoLinhas(L("ui_trust"), [{ nome:L("nome_023"), cor:COR.conf, dados:E.confianca }]),
+      '<div class="graf-legend"><span><i style="background:' + COR.conf + '"></i>Confiança da relação</span></div>'),
+
+    cartao(L("ui_social_rep"), L("ui_rep_sub"),
+      graficoLinhas(L("ui_reputation"), [
+        { nome:nomeV, cor:COR.voce,  dados:E.euRep },
+        { nome:nomeR, cor:COR.rival, dados:E.rivRep, tracejado:true }
+      ]), legendaLinhas),
+
+    cartao(L("ui_efficiency"), L("ui_eff_sub"),
+      graficoLinhas(L("ui_efficiency"), [
+        { nome:nomeV, cor:COR.voce,  dados:E.euEfi },
+        { nome:nomeR, cor:COR.rival, dados:E.rivEfi, tracejado:true }
+      ]), legendaLinhas),
+
+    cartao(L("ui_wealth_acc"), L("ui_wealth_sub"),
+      jogadas ? graficoBarras(L("ui_wealth"), [
+        { nome:nomeV, cor:COR.voce,  dados:E.euPat.slice(1) },
+        { nome:nomeR, cor:COR.rival, dados:E.rivPat.slice(1) }
+      ], brl) : aindaNao, legendaBarras),
+
+    cartao(L("ui_bonus_round"), L("ui_bonus_sub"),
+      jogadas ? graficoBarras('Bônus', [
+        { nome:nomeV, cor:COR.voce,  dados:E.euBonus },
+        { nome:nomeR, cor:COR.rival, dados:E.rivBonus }
+      ], brl) : aindaNao, legendaBarras)
+  ];
+
+  return '<details class="painel card" ' + (aberto ? 'open' : '') + '>' +
+    '<summary>Gráficos — evolução dos indicadores dos dois</summary>' +
+    '<div class="graf-grid">' + cartoes.join('') + '</div>' +
+    '<p style="font-size:11.5px;color:var(--ink-faint);margin:12px 0 0">' +
+    'Passe o mouse sobre os pontos e as barras para ver os valores exatos. As mesmas regras de reputação, ' +
+    'eficiência, dívida da IA, bônus, promoção e demissão valem para você e para ' + S.rival + '.</p></details>';
+}
+
+/* ============================================================================
+   10) INTERFACE
+   ============================================================================ */
+const root = document.getElementById('root');
+const labToggle = document.getElementById('labToggle');
+const btnRestart = document.getElementById('btnRestart');
+const btnAudio = document.getElementById('btnAudio');
+
+const UI = {
+  labMode: false,
+  arquetipoEscolhido: 'tit_for_tat',   // usado só no modo laboratório
+  tela: L("ui_opening")
+};
+
+/* Substitui o token [RIVAL] pelo nome escolhido. Não há lógica de gênero:
+   os textos do pacote são neutros, então basta trocar o nome. */
+function T(txt){
+  if (!txt) return '';
+  return String(txt).replace(/\[RIVAL\]/g, S ? S.rival : '[RIVAL]');
+}
+
+/* Imagem de cena com degradação graciosa se o arquivo não existir. */
+function imgCena(arquivo, alt){
+  return '<div class="scene-holder">' +
+           '<img class="scene-img" src="assets/' + arquivo + '" alt="' + alt + '" ' +
+           'onerror="this.style.display=\'none\'; this.parentNode.classList.add(\'sem-img\');">' +
+         '</div>';
+}
+
+/* ---------------------------------------------------------------- KPIs ---- */
+const sinal = (v)=> (v > 0 ? '+' : '') + v;
+const classeDelta = (v)=> v > 0 ? 'up' : (v < 0 ? 'down' : 'zero');
+
+function painelKPIs(rel){
+  const dConf = rel ? rel.depois.conf - rel.antes.conf : null;
+  const d = rel ? {
+    euRep: rel.depois.eu.rep - rel.antes.eu.rep,   rivRep: rel.depois.riv.rep - rel.antes.riv.rep,
+    euEfi: rel.depois.eu.efi - rel.antes.eu.efi,   rivEfi: rel.depois.riv.efi - rel.antes.riv.efi
+  } : null;
+
+  const barraSimples = (cls, rotulo, valor, delta) =>
+    '<div class="kpi"><div class="kpi-head"><span class="kpi-label">' + rotulo + '</span>' +
+    '<span><b>' + valor + '</b>' +
+    (delta === null ? '' : ' <span class="delta ' + classeDelta(delta) + '">' + sinal(delta) + '</span>') +
+    '</span></div><div class="bar ' + cls + '"><i style="width:' + valor + '%"></i></div></div>';
+
+  const parDeBarras = (rotulo, vV, dV, vR, dR) =>
+    '<div class="kpi-duo"><div class="rot">' + rotulo + '</div><div class="par">' +
+      '<div class="lado"><div class="num"><b style="color:var(--voce)">' + vV + '</b>' +
+        (dV === null ? '' : '<span class="delta ' + classeDelta(dV) + '">' + sinal(dV) + '</span>') +
+        '</div><div class="bar voce"><i style="width:' + vV + '%"></i></div></div>' +
+      '<div class="lado"><div class="num"><b style="color:var(--rival)">' + vR + '</b>' +
+        (dR === null ? '' : '<span class="delta ' + classeDelta(dR) + '">' + sinal(dR) + '</span>') +
+        '</div><div class="bar rival"><i style="width:' + vR + '%"></i></div></div>' +
+    '</div></div>';
+
+  const cargo = (p, cls) => '<span class="cargo-chip ' + cls + (p.demitido ? ' fired' : '') + '">' +
+    (p.demitido ? 'Demissão' : CFG.cargos[p.cargoIdx].nome) + '</span>';
+
+  return '<aside class="card kpi-panel">' +
+    '<h3>Painel do quadrimestre</h3>' +
+    '<div class="duo-head">' +
+      '<div class="duo-who voce' + (S.eu.demitido ? ' fora' : '') + '">' + S.jogador + '<small>você</small></div>' +
+      '<div class="duo-who rival' + (S.riv.demitido ? ' fora' : '') + '">' + S.rival + '<small>IA</small></div>' +
+    '</div>' +
+    barraSimples('conf', L("ui_trust_relation"), S.confianca, dConf) +
+    parDeBarras(L("ui_social_rep"), S.eu.rep, d && d.euRep, S.riv.rep, d && d.rivRep) +
+    parDeBarras(L("ui_efficiency"),       S.eu.efi, d && d.euEfi, S.riv.efi, d && d.rivEfi) +
+    '<div class="kpi-money"><span>Salário / mês</span>' +
+      '<b class="v">' + brl(S.eu.demitido ? 0 : CFG.cargos[S.eu.cargoIdx].salario) + '</b>' +
+      '<b class="r">' + brl(S.riv.demitido ? 0 : CFG.cargos[S.riv.cargoIdx].salario) + '</b></div>' +
+    '<div class="kpi-money"><span>Bônus da rodada</span>' +
+      '<b class="v">' + (rel ? brl(rel.eu.bonus) : '—') + '</b>' +
+      '<b class="r">' + (rel ? brl(rel.riv.bonus) : '—') + '</b></div>' +
+    '<div class="kpi-money"><span>Patrimônio</span>' +
+      '<b class="v">' + brl(S.eu.patrimonio) + '</b>' +
+      '<b class="r">' + brl(S.riv.patrimonio) + '</b></div>' +
+    '<div class="cargo-par">' + cargo(S.eu, 'v') + cargo(S.riv, 'r') + '</div>' +
+    (UI.labMode ? '<div class="lab-state">' + estadoDebug() + '</div>' : '') +
+  '</aside>';
+}
+
+function estadoDebug(){
+  return L("ui_debug_archetype") + S.arquetipo.nome + '\n' +
+         L("ui_debug_relation") + S.estado + ' (' + T(ESTADOS[S.estado].nome) + ')\n' +
+         L("ui_debug_scene") + chaveCena(S.rodada, S.estado) + '\n' +
+         L("ui_debug_streak") + S.eu.streak + ' · ' + S.rival + ' ' + S.riv.streak + '\n' +
+         L("ui_debug_debt") + S.eu.dividaAgend + ' · ' + S.rival + ' ' + S.riv.dividaAgend + '\n' +
+         L("ui_debug_moves") + (S.meus.join('') || '—') + ' · ' + S.rival + ' ' + (S.dele.join('') || '—');
+}
+
+/* ------------------------------------------------------------- TELAS ---- */
+
+function telaAbertura(){
+  UI.tela = L("ui_opening");
+  root.innerHTML =
+    '<div class="card fade-in">' +
+      imgCena('cafe_intro.png', L("ui_alt_intro")) +
+      '<div class="round-tag">Cenário 6 <span class="sep">· abertura</span></div>' +
+      '<h1 class="scene-title serif">' + TEXTOS.aberturaTitulo + '</h1>' +
+      '<p class="scene-meta">' + TEXTOS.personagens + '</p>' +
+      '<h2 class="serif" style="font-size:20px;margin-top:26px">Escolha seu personagem</h2>' +
+      '<p class="narr" style="font-size:15px;margin-top:6px">Você joga com um dos dois. O outro fica com a IA, que ' +
+        'decide por um dos oito arquétipos de comportamento — revelado só no fim.</p>' +
+      '<div class="chars">' + cardPersonagem('Pedro','card_pedro.png') + cardPersonagem('Sofia','card_sofia.png') + '</div>' +
+      (UI.labMode ? boxLaboratorio() : '') +
+    '</div>';
+  document.querySelectorAll('[data-char]').forEach(el => {
+    el.onclick = () => { som('clique'); iniciarPartida(el.getAttribute('data-char')); };
+  });
+  document.querySelectorAll('[data-arq]').forEach(el => {
+    el.onclick = () => { som('clique'); UI.arquetipoEscolhido = el.getAttribute('data-arq'); telaAbertura(); };
+  });
+}
+
+/* Prólogo: o enredo completo, já com o nome real no lugar de [RIVAL]. Por isso
+   a escolha do personagem vem ANTES — assim o token nunca aparece na tela. */
+function telaPrologo(){
+  UI.tela = 'prologo';
+  root.innerHTML =
+    '<div class="card fade-in">' +
+      imgCena('cafe.png', L("ui_cafe_pact")) +
+      '<div class="round-tag">O pacto <span class="sep">· antes da primeira entrega</span></div>' +
+      '<h1 class="scene-title serif">Você é ' + S.jogador + '</h1>' +
+      '<p class="scene-meta">Do outro lado da mesa: ' + S.rival + ', sob controle da IA.</p>' +
+      '<p class="narr quote">' + T(TEXTOS.abertura) + '</p>' +
+      '<p style="font-size:13.5px;color:var(--ink-faint);margin-top:14px">' + T(TEXTOS.simetria) + '</p>' +
+      '<div style="margin-top:20px"><button class="btn primary" id="btnJogar">Começar a primeira rodada</button></div>' +
+    '</div>';
+  document.getElementById('btnJogar').onclick = () => { som('clique'); telaRodada(); };
+}
+
+function cardPersonagem(nome, arte){
+  return '<button class="char" data-char="' + nome + '">' +
+    '<div class="char-art"><img src="assets/' + arte + '" alt="' + nome + '" ' +
+      'onerror="this.style.display=\'none\'; this.parentNode.classList.add(\'sem-img\');"></div>' +
+    '<div class="char-body"><div class="nm">' + nome + '</div>' +
+    '<div class="rl">Analista · mesa de frente para ' + (nome === 'Pedro' ? 'Sofia' : 'Pedro') + '</div></div>' +
+  '</button>';
+}
+
+function boxLaboratorio(){
+  const opts = ARQUETIPOS.map(a =>
+    '<button class="lab-opt' + (a.id === UI.arquetipoEscolhido ? ' on' : '') + '" data-arq="' + a.id + '">' + a.nome + '</button>'
+  ).join('');
+  return '<div class="lab-box"><h3>Modo laboratório · arquétipo de [RIVAL]</h3>' +
+    '<div class="lab-opts">' + opts + '</div>' +
+    '<p style="margin:12px 0 0;font-size:12.5px;color:var(--ink-faint)">No modo narrativa o arquétipo é sorteado e ' +
+    'só é revelado no epílogo. Aqui você escolhe e acompanha o estado numérico durante a partida.</p></div>';
+}
+
+function iniciarPartida(nome){
+  const arqId = UI.labMode ? UI.arquetipoEscolhido
+              : ARQUETIPOS[Math.floor(Math.random() * ARQUETIPOS.length)].id;   // sorteio silencioso
+  // No laboratório a semente é fixa (a mesma partida se repete igual, para
+  // comparar estratégias); no modo narrativa muda a cada jogo.
+  const semente = UI.labMode ? CFG.sementeAleatoria : (Math.random() * 4294967295) >>> 0;
+  novaPartida(nome, arqId, semente);
+  AUDIO.definirHumor(S.estado);
+  telaPrologo();
+}
+
+/* Tela da rodada: introdução da cena + os dois botões do dilema. */
+function telaRodada(){
+  UI.tela = 'rodada';
+  const cena = CENAS[chaveCena(S.rodada, S.estado)];
+  const ultimo = S.historico.length ? S.historico[S.historico.length-1] : null;
+  AUDIO.definirHumor(S.estado);
+  root.innerHTML =
+    '<div class="grid-main">' +
+      '<div>' +
+        '<div class="card fade-in">' +
+          imgCena(cena.img, cena.titulo) +
+          '<div class="round-tag">Rodada ' + S.rodada + ' de ' + CFG.rodadas +
+            ' <span class="sep">· ' + cena.rodadaTitulo + '</span></div>' +
+          '<h1 class="scene-title serif">' + T(cena.titulo) + '</h1>' +
+          '<p class="scene-meta">' + cena.meses + (cena.subtitulo ? ' · ' + T(cena.subtitulo) : '') +
+            ' · clima: ' + T(ESTADOS[S.estado].nome) + '</p>' +
+          '<p class="narr">' + T(cena.intro) + '</p>' +
+          '<div class="choices">' +
+            '<button class="choice coop" data-jogada="C"><div class="ct">Cooperar</div>' +
+              '<div class="cd">' + T(cena.dilemaC) + '</div></button>' +
+            '<button class="choice trair" data-jogada="D"><div class="ct">Trair</div>' +
+              '<div class="cd">' + T(cena.dilemaD) + '</div></button>' +
+          '</div>' +
+        '</div>' +
+        blocoArvore(false) + blocoGraficos(false) +
+      '</div>' +
+      painelKPIs(ultimo) +
+    '</div>';
+  document.querySelectorAll('[data-jogada]').forEach(b => {
+    b.onclick = () => {
+      som('clique');
+      const rel = jogarRodada(b.getAttribute('data-jogada'));
+      AUDIO.definirHumor(S.estado);
+      telaResultado(rel);
+    };
+  });
+}
+
+/* Tela de resultado: revelação + consequência + fragmentos + eventos. */
+function telaResultado(rel){
+  UI.tela = 'resultado';
+  const cena = CENAS[rel.cenaKey];
+  const rotulo = (a)=> a === 'C' ? 'Cooperou' : 'Traiu';
+  const eventos = [];
+
+  if (rel.eu.divida > 0)
+    eventos.push('<div class="evt down">A sua conta da IA venceu: erros da rodada anterior chegaram ao cliente ' +
+      '(&minus;' + rel.eu.divida + ' de eficiência).</div>');
+  if (rel.riv.divida > 0)
+    eventos.push('<div class="evt down">A conta da IA de ' + S.rival + L("ui_ai_debt_rival_mid") +
+      '(&minus;' + rel.riv.divida + L("ui_efficiency_for") + S.rival + ').</div>');
+  if (rel.eu.promovido)
+    eventos.push('<div class="evt gold">Promoção! Você agora é <strong>' + CFG.cargos[S.eu.cargoIdx].nome +
+      '</strong> — ' + brl(CFG.cargos[S.eu.cargoIdx].salario) + '/mês a partir do próximo período.</div>');
+  if (rel.riv.promovido)
+    eventos.push('<div class="evt gold">Marina promoveu ' + S.rival + ' a <strong>' + CFG.cargos[S.riv.cargoIdx].nome +
+      '</strong>.</div>');
+  if (rel.eu.demitidoAgora)
+    eventos.push('<div class="evt down">Marina te chamou na sala. <strong>Sua demissão saiu.</strong> O ciclo acabou aqui.</div>');
+  if (rel.riv.demitidoAgora)
+    eventos.push('<div class="evt down"><strong>Marina desligou ' + S.rival + '.</strong> As entregas infladas com IA ' +
+      'cobraram o preço, e a chefe não teve mais como segurar. O ciclo se encerra aqui.</div>');
+
+  const fragmentos = rel.fragmentos.map(f => '<div class="frag">' + T(f) + '</div>').join('');
+
+  root.innerHTML =
+    '<div class="grid-main">' +
+      '<div>' +
+        '<div class="card fade-in">' +
+          '<div class="round-tag">Rodada ' + rel.rodada + ' <span class="sep">· ' + cena.rodadaTitulo + '</span></div>' +
+          '<h1 class="scene-title serif">' + T(cena.titulo) + '</h1>' +
+          '<div class="reveal">' +
+            '<div class="play ' + rel.minha.toLowerCase() + '"><div class="who">Você (' + S.jogador + ')</div>' +
+              '<div class="act">' + rotulo(rel.minha) + '</div></div>' +
+            '<div class="quad-badge"><div class="q">' + rel.quad + '</div>' +
+              '<div class="qn">' + QUADRANTES[rel.quad].nome + '</div></div>' +
+            '<div class="play ' + rel.dele.toLowerCase() + '"><div class="who">' + S.rival + '</div>' +
+              '<div class="act">' + rotulo(rel.dele) + '</div></div>' +
+          '</div>' +
+          '<p class="narr">' + T(cena.cons[rel.quad]) + '</p>' +
+          '<div style="font-size:13px;color:var(--ink-faint);margin-top:6px;line-height:1.7">' +
+            L("ui_bonus_delivery_html") + brl(rel.eu.bonus) + '</b> · ' +
+            S.rival + ' <b style="color:var(--rival)">' + brl(rel.riv.bonus) + '</b><br>' +
+            L("ui_salary_html") + brl(rel.eu.salario) + '</b> · ' +
+            S.rival + ' <b>' + brl(rel.riv.salario) + '</b><br>' +
+            L("ui_relation_html") + T(ESTADOS[rel.estadoDepois].nome) + '</b></div>' +
+          fragmentos + eventos.join('') +
+          '<div style="margin-top:20px">' +
+            '<button class="btn primary" id="btnSeguir">' +
+              (S.fim ? L("ui_see_outcome") : L("ui_continue_round") + (S.rodada + 1)) + '</button></div>' +
+        '</div>' +
+        blocoArvore(true) + blocoGraficos(false) +
+      '</div>' +
+      painelKPIs(rel) +
+    '</div>';
+
+  // trilha sonora do resultado
+  som('revelar');
+  setTimeout(() => {
+    if (rel.eu.demitidoAgora || rel.riv.demitidoAgora) som('demissao');
+    else if (rel.eu.promovido)                          som('promocao');
+    else if (rel.eu.bonus >= CFG.bonus.cooperacaoMutua) som('positivo');
+    else if (rel.eu.divida > 0 || rel.eu.dEfi < 0)      som('negativo');
+  }, 420);
+
+  document.getElementById('btnSeguir').onclick = () => {
+    som('clique');
+    if (S.fim) telaEpilogo();
+    else { S.rodada++; telaRodada(); }
+  };
+}
+
+/* Tela final: epílogos, resumo, árvore, gráficos, arquétipo e lição. */
+/* Tela final (§13) — a Marina te chama na sala.
+   Ordem: arte do destino → fala da Marina → números → epílogos →
+   leitura do seu perfil → leitura do perfil da IA → lição → jogar de novo. */
+function telaEpilogo(){
+  UI.tela = 'epilogo';
+  const lista = avaliarEpilogos();
+  const ids = lista.map(e => e.id);
+  const destino = arteDoDestino(ids);
+  const perfil = perfilJogador();
+  const arq = S.arquetipo;
+
+  /* --- §13-B · arte do destino (sempre cena do mundo do jogo) --- */
+  const cardsDaDupla = destino.duplo
+    ? '<div class="destino-duo">' +
+        '<div class="destino-card"><img src="assets/card_pedro.png" alt="Pedro" ' +
+          'onerror="this.parentNode.style.display=\'none\'"></div>' +
+        '<div class="destino-card"><img src="assets/card_sofia.png" alt="Sofia" ' +
+          'onerror="this.parentNode.style.display=\'none\'"></div>' +
+      '</div>'
+    : '';
+  const arte =
+    '<figure class="destino">' +
+      '<img src="assets/' + destino.img + '" alt="' + destino.legenda + '" ' +
+        'onerror="this.style.display=\'none\'; this.parentNode.classList.add(\'sem-img\');">' +
+      cardsDaDupla +
+      '<figcaption>' + T(destino.legenda) + '</figcaption>' +
+    '</figure>';
+
+  /* --- §13-A · a Marina comenta o resultado --- */
+  const falas = falaDaMarina(ids).slice();
+  if (S.riv.demitido) falas.push(MARINA_RIVAL_DEMITIDO);
+  const marina =
+    '<div class="marina">' +
+      '<div class="marina-quem">Marina <small>sua chefe</small></div>' +
+      falas.map((f, i) => '<p>' + (i === 0 ? '&ldquo;' : '') + T(f) +
+                          (i === falas.length - 1 ? '&rdquo;' : '') + '</p>').join('') +
+    '</div>';
+
+  /* --- os números do ciclo, lado a lado --- */
+  const cargoDe = (p)=> p.demitido ? 'Demissão' : CFG.cargos[p.cargoIdx].nome;
+  const resumo =
+    '<div class="summary-grid">' +
+      '<div class="sum"><div class="v">' + brl(S.eu.patrimonio) + '</div><div class="v r">' + brl(S.riv.patrimonio) +
+        '</div><div class="l">Patrimônio</div></div>' +
+      '<div class="sum"><div class="v" style="font-size:15px">' + cargoDe(S.eu) + '</div><div class="v r">' + cargoDe(S.riv) +
+        '</div><div class="l">Cargo final</div></div>' +
+      '<div class="sum"><div class="v">' + S.eu.rep + '</div><div class="v r">' + S.riv.rep +
+        '</div><div class="l">Reputação</div></div>' +
+      '<div class="sum"><div class="v">' + S.eu.efi + '</div><div class="v r">' + S.riv.efi +
+        '</div><div class="l">Eficiência</div></div>' +
+      '<div class="sum"><div class="v">' + S.confianca + '</div><div class="v r">relação</div><div class="l">Confiança</div></div>' +
+      '<div class="sum"><div class="v">' + S.cCount + 'C / ' + S.dCount + 'D</div><div class="v r">' +
+        S.dele.filter(x => x === 'C').length + 'C / ' + S.dele.filter(x => x === 'D').length + 'D</div>' +
+        '<div class="l">Jogadas</div></div>' +
+    '</div>' +
+    '<p style="font-size:12px;color:var(--ink-faint);margin:-6px 0 4px">Em cada quadro: o valor de cima é o seu; ' +
+    L("ui_summary_bottom") + S.rival + '.</p>';
+
+  const epis = lista.map(e =>
+    '<div class="epi ' + (e.tom || '') + '"><h3>' + T(e.titulo) + '</h3><p>' + T(e.texto) + '</p></div>'
+  ).join('');
+
+  /* --- §13-C · as duas leituras de perfil --- */
+  const leituraVoce =
+    '<div class="perfil">' +
+      '<div class="perfil-tag">Como você jogou</div>' +
+      '<h3>' + perfil.nome + '</h3>' +
+      '<p><b>Para você:</b> ' + perfil.pessoal + '</p>' +
+      '<p><b>Para o ambiente à sua volta:</b> ' + perfil.social + '</p>' +
+    '</div>';
+  const leituraIA =
+    '<div class="perfil rival">' +
+      '<div class="perfil-tag">Como ' + S.rival + L("ui_profile_rival_suffix") +
+      '<h3>' + arq.nome + '</h3>' +
+      '<p>' + T(arq.sabor) + '</p>' +
+      '<p><b>No longo prazo:</b> ' + T(arq.impacto) + '</p>' +
+    '</div>';
+
+  root.innerHTML =
+    '<div class="card fade-in">' +
+      arte +
+      '<div class="round-tag">Fim do ciclo <span class="sep">· ' +
+        (S.historico.length * CFG.mesesPorRodada) + ' meses depois</span></div>' +
+      '<h1 class="scene-title serif">A Marina te chama na sala</h1>' +
+      '<p class="scene-meta">Você jogou como ' + S.jogador + L("ui_outcome_other_side") + S.rival + '.</p>' +
+      marina +
+      '<div class="secao-tit">Os números do ciclo</div>' + resumo +
+      '<div class="secao-tit">O que aconteceu com você</div>' + epis +
+      '<div class="secao-tit">Leitura das duas estratégias</div>' + leituraVoce + leituraIA +
+      '<div class="licao"><h3>A lição de teoria dos jogos</h3><p>' + TEXTOS.licao + '</p></div>' +
+      '<div style="margin-top:20px"><button class="btn primary" id="btnDeNovo">Jogar de novo</button></div>' +
+    '</div>' +
+    blocoGraficos(true) + blocoArvore(true);
+
+  document.getElementById('btnDeNovo').onclick = () => { som('clique'); S = null; telaAbertura(); };
+}
+
+/* --------------------------------------------------------------- BOOT ---- */
+function som(nome){
+  AUDIO.iniciar();      // o contexto nasce no primeiro clique (política de autoplay)
+  AUDIO.sfx(nome);
+}
+function atualizarBotaoAudio(){
+  btnAudio.innerHTML = AUDIO.ligado ? '&#128266;' : '&#128263;';
+  btnAudio.title = AUDIO.ligado ? L("ui_sound_off") : L("ui_sound_on");
+}
+AUDIO.carregarPreferencia();
+atualizarBotaoAudio();
+btnAudio.onclick = () => { AUDIO.iniciar(); AUDIO.alternar(); atualizarBotaoAudio(); if (AUDIO.ligado) AUDIO.sfx('clique'); };
+
+labToggle.onchange = () => {
+  UI.labMode = labToggle.checked;
+  // Só re-renderiza na tela de configuração; no meio da partida passa a valer
+  // na próxima tela, para não permitir rejogar uma rodada já resolvida.
+  if (UI.tela === L("ui_opening")) telaAbertura();
+};
+btnRestart.onclick = () => { som('clique'); S = null; telaAbertura(); };
+
+telaAbertura();
+
+/* ============================================================================
+   TESTES DE CALIBRAÇÃO — rode no console do navegador com: testes()
+   ============================================================================ */
+function simular(nome, arqId, jogadas){
+  novaPartida(nome, arqId);
+  for (const j of jogadas){ jogarRodada(j); if (S.fim) break; S.rodada++; }
+  return { S, epilogos: avaliarEpilogos().map(e => e.id) };
+}
+function testes(){
+  const linha = (t, r) => ({
+    teste: t, rodadas: r.S.historico.length,
+    'você efi': r.S.eu.efi, 'você rep': r.S.eu.rep, 'você R$': r.S.eu.patrimonio,
+    'você demitido': r.S.eu.demitido,
+    'IA efi': r.S.riv.efi, 'IA rep': r.S.riv.rep, 'IA R$': r.S.riv.patrimonio,
+    'IA demitida': r.S.riv.demitido,
+    epílogos: r.epilogos.join(', ')
+  });
+  const out = [
+    linha('1 · traição tripla',        simular('Pedro','tit_for_tat',['D','D','D','C','C','C'])),
+    linha('2 · cooperação ingênua',    simular('Sofia','all_cheat',  ['C','C','C','C','C','C'])),
+    linha('3 · cooperação mútua',      simular('Pedro','tit_for_tat',['C','C','C','C','C','C'])),
+    linha('4 · Rancoroso (IA cai)',    simular('Pedro','grudger',    ['D','D','C','C','C','C'])),
+    linha('5 · traição mútua total',   simular('Pedro','all_cheat',  ['D','D','D','D','D','D']))
+  ];
+  console.table(out);
+  S = null; telaAbertura();
+  return out;
+}
+window.testes = testes;
+
+})();
+</script>
+
+</body>
+</html>
