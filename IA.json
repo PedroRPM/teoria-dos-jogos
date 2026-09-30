@@ -2,6 +2,7 @@
   "locale": "pt-BR",
   "name": "cenario6_pt-br",
   "texts": {
+    "image": "IA/",
     "nome_001": "Analista",
     "nome_002": "Analista Sênior",
     "nome_003": "Líder de Projetos",
@@ -603,5 +604,118 @@
     "test_ai_rep": "IA rep",
     "test_ai_money": "IA R$",
     "test_ai_fired": "IA demitida"
+  },
+  "config": {
+    "personagens": [
+      {
+        "nome": "Pedro",
+        "imagem": "card_pedro.png"
+      },
+      {
+        "nome": "Sofia",
+        "imagem": "card_sofia.png"
+      }
+    ],
+    "imagens": {
+      "abertura": "cafe_intro.png",
+      "prologo": "cafe.png"
+    },
+    "cenas": {
+      "r1_TR": {
+        "img": "cafe.png"
+      },
+      "r2_AL": {
+        "img": "meeting.png"
+      },
+      "r2_DE": {
+        "img": "office.png"
+      },
+      "r2_DX": {
+        "img": "elevator.png"
+      },
+      "r2_RU": {
+        "img": "meeting.png"
+      },
+      "r3_AL": {
+        "img": "office.png"
+      },
+      "r3_TR": {
+        "img": "office.png"
+      },
+      "r3_DE": {
+        "img": "office.png"
+      },
+      "r3_DX": {
+        "img": "elevator.png"
+      },
+      "r3_RU": {
+        "img": "meeting.png"
+      },
+      "r4_AL": {
+        "img": "elevator.png"
+      },
+      "r4_TR": {
+        "img": "elevator.png"
+      },
+      "r4_DE": {
+        "img": "meeting.png"
+      },
+      "r4_DX": {
+        "img": "meeting.png"
+      },
+      "r4_RU": {
+        "img": "meeting.png"
+      },
+      "r5_COOP": {
+        "img": "rooftop.png"
+      },
+      "r5_DESC": {
+        "img": "meeting.png"
+      },
+      "r5_RUP": {
+        "img": "auditoria.png"
+      },
+      "r6_COOP": {
+        "img": "rooftop.png"
+      },
+      "r6_DESC": {
+        "img": "meeting.png"
+      },
+      "r6_RUP": {
+        "img": "acerto.png"
+      }
+    },
+    "destino": {
+      "promocao_sustentavel": {
+        "img": "rooftop.png"
+      },
+      "demissao": {
+        "img": "office.png"
+      },
+      "oportunista": {
+        "img": "elevator.png"
+      },
+      "invisivel": {
+        "img": "office.png"
+      },
+      "parceria": {
+        "img": "rooftop.png"
+      },
+      "burocracia": {
+        "img": "meeting.png"
+      },
+      "ingenua_explorada": {
+        "img": "office.png"
+      },
+      "reconstrucao": {
+        "img": "cafe.png"
+      },
+      "alta_producao": {
+        "img": "meeting.png"
+      },
+      "demissao_rival": {
+        "img": "office.png"
+      }
+    }
   }
 }

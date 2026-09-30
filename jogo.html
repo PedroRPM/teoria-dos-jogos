@@ -15,6 +15,8 @@ html, body { margin: 0; padding: 0; }
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 
+
+
 :root{
   --bg:        #D4CDBA;
   --bg-2:      #E3DFD1;
@@ -56,7 +58,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 body{
   font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
   margin: 0;
-  background-image: url("assets/fundo3.png");
+  background-image: none;
   background-repeat: repeat;
  /* background-color: #F9F6EF;*/
   color:var(--ink);
@@ -383,7 +385,7 @@ body.dark-mode{
   --ink-soft:  var(--dark-ink-soft);
   --ink-faint: var(--dark-ink-faint);
   --shadow:    var(--dark-shadow);
-  background-image:url("assets/fundo2.png");
+  background-image:none;
   background-color:var(--bg);
   color:var(--ink);
 }
@@ -417,6 +419,8 @@ body.dark-mode .btn.ghost{ background:transparent; }
   const cen=new URLSearchParams(location.search).get("cen");
   const __loc=await fetch(cen+".json",{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});
   const L=(k)=>__loc.texts[k] ?? k;
+  const CONFIG=__loc.config||{};
+  const PERSONAGENS=CONFIG.personagens||[{nome:'Pedro',imagem:'card_pedro.png'},{nome:'Sofia',imagem:'card_sofia.png'}];
   const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
   const nodes=[]; while(walker.nextNode()) nodes.push(walker.currentNode);
   nodes.forEach(n=>{n.nodeValue=n.nodeValue.replace(/\{\{L:([^}]+)\}\}/g,(_,k)=>L(k));});
@@ -533,6 +537,8 @@ const CFG = {
 /* ============================================================================
    2) TEXTOS FIXOS (transcritos do pacote de histórias v4, §0)
    ============================================================================ */
+const imagens0 = L("image");
+  document.body.style.backgroundImage = `url("assets/${imagens0}fundo3.png")`;
 const TEXTOS = {
   aberturaTitulo: L("aberturaTitulo_001"),
   abertura:
@@ -901,6 +907,8 @@ const CENAS = {
   }
 };
 
+Object.keys(CENAS).forEach(k=>{ if(CONFIG.cenas && CONFIG.cenas[k] && CONFIG.cenas[k].img) CENAS[k].img=CONFIG.cenas[k].img; });
+
 /* ============================================================================
    4) FRAGMENTOS POR ESTADO (§10) — cada categoria tem VARIAÇÕES.
    O motor roda as variações: nunca repete a mesma frase em rodadas seguidas e
@@ -1157,6 +1165,8 @@ const DESTINO = {
   demissao_rival:       { img:'office.png',   legenda:L("data_135") }
 };
 
+Object.keys(DESTINO).forEach(k=>{ if(CONFIG.destino && CONFIG.destino[k] && CONFIG.destino[k].img) DESTINO[k].img=CONFIG.destino[k].img; });
+
 /* --- §13-C · Leitura do SEU perfil ---------------------------------------- */
 const PERFIS = {
   reciproco: { nome:L("nome_017"),
@@ -1287,7 +1297,7 @@ function novaFicha(nome){
 }
 
 function novaPartida(nomeJogador, arquetipoId, semente){
-  const rival = nomeJogador === 'Pedro' ? 'Sofia' : 'Pedro';
+  const rival = (PERSONAGENS.find(p=>p.nome!==nomeJogador)||PERSONAGENS[0]).nome;
   const arq = ARQUETIPOS.find(a => a.id === arquetipoId) || ARQUETIPOS[0];
   // A semente é fixa por padrão (partidas reproduzíveis, útil em sala). No modo
   // narrativa a interface passa uma semente nova a cada partida, para que o
@@ -2020,7 +2030,7 @@ function T(txt){
 /* Imagem de cena com degradação graciosa se o arquivo não existir. */
 function imgCena(arquivo, alt){
   return '<div class="scene-holder">' +
-           '<img class="scene-img" src="assets/' + arquivo + '" alt="' + alt + '" ' +
+           '<img class="scene-img" src="assets/' + imagens0 + arquivo + '" alt="' + alt + '" ' +
            'onerror="this.style.display=\'none\'; this.parentNode.classList.add(\'sem-img\');">' +
          '</div>';
 }
@@ -2053,10 +2063,10 @@ function painelKPIs(rel){
     '</div></div>';
 
   const cargo = (p, cls) => '<span class="cargo-chip ' + cls + (p.demitido ? ' fired' : '') + '">' +
-    (p.demitido ? 'Demissão' : CFG.cargos[p.cargoIdx].nome) + '</span>';
+    (p.demitido ? L("ui_fired_label").replace(/: $/, '') : CFG.cargos[p.cargoIdx].nome) + '</span>';
 
   return '<aside class="card kpi-panel">' +
-    '<h3>Painel do quadrimestre</h3>' +
+    '<h3>' + L("ui_quarter_panel") + '</h3>' +
     '<div class="duo-head">' +
       '<div class="duo-who voce' + (S.eu.demitido ? ' fora' : '') + '">' + S.jogador + '<small>você</small></div>' +
       '<div class="duo-who rival' + (S.riv.demitido ? ' fora' : '') + '">' + S.rival + '<small>IA</small></div>' +
@@ -2064,13 +2074,13 @@ function painelKPIs(rel){
     barraSimples('conf', L("ui_trust_relation"), S.confianca, dConf) +
     parDeBarras(L("ui_social_rep"), S.eu.rep, d && d.euRep, S.riv.rep, d && d.rivRep) +
     parDeBarras(L("ui_efficiency"),       S.eu.efi, d && d.euEfi, S.riv.efi, d && d.rivEfi) +
-    '<div class="kpi-money"><span>Salário / mês</span>' +
+    '<div class="kpi-money"><span>' + L("ui_salary_month") + '</span>' +
       '<b class="v">' + brl(S.eu.demitido ? 0 : CFG.cargos[S.eu.cargoIdx].salario) + '</b>' +
       '<b class="r">' + brl(S.riv.demitido ? 0 : CFG.cargos[S.riv.cargoIdx].salario) + '</b></div>' +
-    '<div class="kpi-money"><span>Bônus da rodada</span>' +
+    '<div class="kpi-money"><span>' + L("ui_round_bonus") + '</span>' +
       '<b class="v">' + (rel ? brl(rel.eu.bonus) : '—') + '</b>' +
       '<b class="r">' + (rel ? brl(rel.riv.bonus) : '—') + '</b></div>' +
-    '<div class="kpi-money"><span>Patrimônio</span>' +
+    '<div class="kpi-money"><span>' + L("ui_wealth") + '</span>' +
       '<b class="v">' + brl(S.eu.patrimonio) + '</b>' +
       '<b class="r">' + brl(S.riv.patrimonio) + '</b></div>' +
     '<div class="cargo-par">' + cargo(S.eu, 'v') + cargo(S.riv, 'r') + '</div>' +
@@ -2093,14 +2103,13 @@ function telaAbertura(){
   UI.tela = L("ui_opening");
   root.innerHTML =
     '<div class="card fade-in">' +
-      imgCena('cafe_intro.png', L("ui_alt_intro")) +
-      '<div class="round-tag">Cenário 6 <span class="sep">· abertura</span></div>' +
+      imgCena((CONFIG.imagens&&CONFIG.imagens.abertura)||'cafe_intro.png', L("ui_alt_intro")) +
+      '<div class="round-tag">' + L("title") + ' <span class="sep">· ' + L("ui_opening") + '</span></div>' +
       '<h1 class="scene-title serif">' + TEXTOS.aberturaTitulo + '</h1>' +
       '<p class="scene-meta">' + TEXTOS.personagens + '</p>' +
-      '<h2 class="serif" style="font-size:20px;margin-top:26px">Escolha seu personagem</h2>' +
-      '<p class="narr" style="font-size:15px;margin-top:6px">Você joga com um dos dois. O outro fica com a IA, que ' +
-        'decide por um dos oito arquétipos de comportamento — revelado só no fim.</p>' +
-      '<div class="chars">' + cardPersonagem('Pedro','card_pedro.png') + cardPersonagem('Sofia','card_sofia.png') + '</div>' +
+      '<h2 class="serif" style="font-size:20px;margin-top:26px">' + L("ui_choose_character") + '</h2>' +
+      '<p class="narr" style="font-size:15px;margin-top:6px">' + L("ui_choose_desc") + L("ui_choose_desc2") + '</p>' +
+      '<div class="chars">' + PERSONAGENS.map(cardPersonagem).join('') + '</div>' +
       (UI.labMode ? boxLaboratorio() : '') +
     '</div>';
   document.querySelectorAll('[data-char]').forEach(el => {
@@ -2117,23 +2126,25 @@ function telaPrologo(){
   UI.tela = 'prologo';
   root.innerHTML =
     '<div class="card fade-in">' +
-      imgCena('cafe.png', L("ui_cafe_pact")) +
-      '<div class="round-tag">O pacto <span class="sep">· antes da primeira entrega</span></div>' +
+      imgCena((CONFIG.imagens&&CONFIG.imagens.prologo)||'cafe.png', L("ui_cafe_pact")) +
+      '<div class="round-tag">' + TEXTOS.aberturaTitulo + ' <span class="sep">· ' + L("ui_before_first") + '</span></div>' +
       '<h1 class="scene-title serif">Você é ' + S.jogador + '</h1>' +
       '<p class="scene-meta">Do outro lado da mesa: ' + S.rival + ', sob controle da IA.</p>' +
       '<p class="narr quote">' + T(TEXTOS.abertura) + '</p>' +
       '<p style="font-size:16.5px;color:var(--ink-faint);margin-top:14px">' + T(TEXTOS.simetria) + '</p>' +
-      '<div style="margin-top:20px"><button class="btn primary" id="btnJogar">Começar a primeira rodada</button></div>' +
+      '<div style="margin-top:20px"><button class="btn primary" id="btnJogar">' + L("ui_start_first") + '</button></div>' +
     '</div>';
   document.getElementById('btnJogar').onclick = () => { som('clique'); telaRodada(); };
 }
 
-function cardPersonagem(nome, arte){
+function cardPersonagem(personagem){
+  const nome=personagem.nome, arte=personagem.imagem;
+  const outro=(PERSONAGENS.find(p=>p.nome!==nome)||{}).nome||'';
   return '<button class="char" data-char="' + nome + '">' +
-    '<div class="char-art"><img src="assets/' + arte + '" alt="' + nome + '" ' +
+    '<div class="char-art"><img src="assets/' + imagens0 + arte + '" alt="' + nome + '" ' +
       'onerror="this.style.display=\'none\'; this.parentNode.classList.add(\'sem-img\');"></div>' +
     '<div class="char-body"><div class="nm">' + nome + '</div>' +
-    '<div class="rl">Analista · mesa de frente para ' + (nome === 'Pedro' ? 'Sofia' : 'Pedro') + '</div></div>' +
+    '<div class="rl">' + CFG.cargos[0].nome + ' · ' + outro + '</div></div>' +
   '</button>';
 }
 
@@ -2213,13 +2224,12 @@ function telaResultado(rel){
     eventos.push('<div class="evt gold">Promoção! Você agora é <strong>' + CFG.cargos[S.eu.cargoIdx].nome +
       '</strong> — ' + brl(CFG.cargos[S.eu.cargoIdx].salario) + '/mês a partir do próximo período.</div>');
   if (rel.riv.promovido)
-    eventos.push('<div class="evt gold">Marina promoveu ' + S.rival + ' a <strong>' + CFG.cargos[S.riv.cargoIdx].nome +
+    eventos.push('<div class="evt gold">' + L("ui_promotion_rival") + S.rival + ' a <strong>' + CFG.cargos[S.riv.cargoIdx].nome +
       '</strong>.</div>');
   if (rel.eu.demitidoAgora)
-    eventos.push('<div class="evt down">Marina te chamou na sala. <strong>Sua demissão saiu.</strong> O ciclo acabou aqui.</div>');
+    eventos.push('<div class="evt down">' + L("ui_fired_you_full") + '</div>');
   if (rel.riv.demitidoAgora)
-    eventos.push('<div class="evt down"><strong>Marina desligou ' + S.rival + '.</strong> As entregas infladas com IA ' +
-      'cobraram o preço, e a chefe não teve mais como segurar. O ciclo se encerra aqui.</div>');
+    eventos.push('<div class="evt down">' + L("ui_fired_rival_prefix3") + S.rival + L("ui_fired_rival_prefix4") + L("ui_fired_rival_suffix3") + '</div>');
 
   const fragmentos = rel.fragmentos.map(f => '<div class="frag">' + T(f) + '</div>').join('');
 
@@ -2285,15 +2295,13 @@ function telaEpilogo(){
   /* --- §13-B · arte do destino (sempre cena do mundo do jogo) --- */
   const cardsDaDupla = destino.duplo
     ? '<div class="destino-duo">' +
-        '<div class="destino-card"><img src="assets/card_pedro.png" alt="Pedro" ' +
-          'onerror="this.parentNode.style.display=\'none\'"></div>' +
-        '<div class="destino-card"><img src="assets/card_sofia.png" alt="Sofia" ' +
-          'onerror="this.parentNode.style.display=\'none\'"></div>' +
+        PERSONAGENS.map(p => '<div class="destino-card"><img src="assets/' + imagens0 + p.imagem + '" alt="' + p.nome + '" ' +
+          'onerror="this.parentNode.style.display=\'none\'"></div>').join('') +
       '</div>'
     : '';
   const arte =
     '<figure class="destino">' +
-      '<img src="assets/' + destino.img + '" alt="' + destino.legenda + '" ' +
+      '<img src="assets/' + imagens0 + destino.img + '" alt="' + destino.legenda + '" ' +
         'onerror="this.style.display=\'none\'; this.parentNode.classList.add(\'sem-img\');">' +
       cardsDaDupla +
       '<figcaption>' + T(destino.legenda) + '</figcaption>' +
@@ -2304,7 +2312,7 @@ function telaEpilogo(){
   if (S.riv.demitido) falas.push(MARINA_RIVAL_DEMITIDO);
   const marina =
     '<div class="marina">' +
-      '<div class="marina-quem">Marina <small>sua chefe</small></div>' +
+      '<div class="marina-quem">' + L("ui_marina") + ' <small>' + L("ui_boss") + '</small></div>' +
       falas.map((f, i) => '<p>' + (i === 0 ? '&ldquo;' : '') + T(f) +
                           (i === falas.length - 1 ? '&rdquo;' : '') + '</p>').join('') +
     '</div>';
@@ -2336,17 +2344,17 @@ function telaEpilogo(){
   /* --- §13-C · as duas leituras de perfil --- */
   const leituraVoce =
     '<div class="perfil">' +
-      '<div class="perfil-tag">Como você jogou</div>' +
+      '<div class="perfil-tag">' + L("ui_profile_you2") + '</div>' +
       '<h3>' + perfil.nome + '</h3>' +
-      '<p><b>Para você:</b> ' + perfil.pessoal + '</p>' +
-      '<p><b>Para o ambiente à sua volta:</b> ' + perfil.social + '</p>' +
+      '<p><b>' + L("ui_profile_personal2") + '</b> ' + perfil.pessoal + '</p>' +
+      '<p><b>' + L("ui_profile_social2") + '</b> ' + perfil.social + '</p>' +
     '</div>';
   const leituraIA =
     '<div class="perfil rival">' +
       '<div class="perfil-tag">Como ' + S.rival + L("ui_profile_rival_suffix") +
       '<h3>' + arq.nome + '</h3>' +
       '<p>' + T(arq.sabor) + '</p>' +
-      '<p><b>No longo prazo:</b> ' + T(arq.impacto) + '</p>' +
+      '<p><b>' + L("ui_profile_long2") + '</b> ' + T(arq.impacto) + '</p>' +
     '</div>';
 
   root.innerHTML =
@@ -2354,14 +2362,14 @@ function telaEpilogo(){
       arte +
       '<div class="round-tag">Fim do ciclo <span class="sep">· ' +
         (S.historico.length * CFG.mesesPorRodada) + ' meses depois</span></div>' +
-      '<h1 class="scene-title serif">A Marina te chama na sala</h1>' +
+      '<h1 class="scene-title serif">' + L("ui_outcome_title3") + '</h1>' +
       '<p class="scene-meta">Você jogou como ' + S.jogador + L("ui_outcome_other_side") + S.rival + '.</p>' +
       marina +
-      '<div class="secao-tit">Os números do ciclo</div>' + resumo +
-      '<div class="secao-tit">O que aconteceu com você</div>' + epis +
-      '<div class="secao-tit">Leitura das duas estratégias</div>' + leituraVoce + leituraIA +
+      '<div class="secao-tit">' + L("ui_numbers3") + '</div>' + resumo +
+      '<div class="secao-tit">' + L("ui_happened3") + '</div>' + epis +
+      '<div class="secao-tit">' + L("ui_strategy_compare3") + '</div>' + leituraVoce + leituraIA +
       '<div class="licao"><h3>A lição de teoria dos jogos</h3><p>' + TEXTOS.licao + '</p></div>' +
-      '<div style="margin-top:20px"><button class="btn primary" id="btnDeNovo">Jogar de novo</button></div>' +
+      '<div style="margin-top:20px"><button class="btn primary" id="btnDeNovo">' + L("ui_replay3") + '</button></div>' +
     '</div>' +
     blocoGraficos(true) + blocoArvore(true);
 
@@ -2379,6 +2387,7 @@ function atualizarBotaoAudio(){
 }
 function atualizarModoEscuro(){
   document.body.classList.toggle('dark-mode');
+  document.body.style.backgroundImage = document.body.classList.contains('dark-mode') ? `url("assets/${imagens0}fundo2.png")` : `url("assets/${imagens0}fundo3.png")`;
   btnDarkMode.innerHTML = document.body.classList.contains('dark-mode') ? '&#9728;&#65039;' : '&#127769;';
 }
 btnDarkMode.onclick = atualizarModoEscuro;
@@ -2414,11 +2423,11 @@ function testes(){
     epílogos: r.epilogos.join(', ')
   });
   const out = [
-    linha('1 · traição tripla',        simular('Pedro','tit_for_tat',['D','D','D','C','C','C'])),
-    linha('2 · cooperação ingênua',    simular('Sofia','all_cheat',  ['C','C','C','C','C','C'])),
-    linha('3 · cooperação mútua',      simular('Pedro','tit_for_tat',['C','C','C','C','C','C'])),
-    linha('4 · Rancoroso (IA cai)',    simular('Pedro','grudger',    ['D','D','C','C','C','C'])),
-    linha('5 · traição mútua total',   simular('Pedro','all_cheat',  ['D','D','D','D','D','D']))
+    linha('1 · traição tripla',        simular(PERSONAGENS[0].nome,'tit_for_tat',['D','D','D','C','C','C'])),
+    linha('2 · cooperação ingênua',    simular(PERSONAGENS[1].nome,'all_cheat',  ['C','C','C','C','C','C'])),
+    linha('3 · cooperação mútua',      simular(PERSONAGENS[0].nome,'tit_for_tat',['C','C','C','C','C','C'])),
+    linha('4 · Rancoroso (IA cai)',    simular(PERSONAGENS[0].nome,'grudger',    ['D','D','C','C','C','C'])),
+    linha('5 · traição mútua total',   simular(PERSONAGENS[0].nome,'all_cheat',  ['D','D','D','D','D','D']))
   ];
   console.table(out);
   S = null; telaAbertura();
